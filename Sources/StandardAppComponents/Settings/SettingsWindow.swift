@@ -16,8 +16,10 @@ public struct SettingsWindow<AppTabs: View>: View {
         TabView {
             GeneralTabContent(contract: general)
                 .tabItem { Label("General", systemImage: "gearshape") }
+                .keyboardShortcut("1", modifiers: .command)
 
             appTabs()
         }
+        .standardSettingsBehaviors()
     }
 }
