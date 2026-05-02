@@ -29,4 +29,14 @@ final class GeneralTabContractTests: XCTestCase {
         let window = SettingsWindow(general: contract) { Text("Custom Tab") }
         _ = window.body
     }
+
+    func testSettingsWindowAcceptsMaxHeight() {
+        let contract = GeneralTabContract(
+            appearance: { Text("A") },
+            language:   { Text("L") }
+        )
+        // maxHeight 指定ありの公開 init が利用可能であること、および body 評価が通ることを担保する。
+        let window = SettingsWindow(general: contract, maxHeight: 600) { Text("Custom Tab") }
+        _ = window.body
+    }
 }
