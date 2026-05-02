@@ -30,13 +30,23 @@ final class GeneralTabContractTests: XCTestCase {
         _ = window.body
     }
 
-    func testSettingsWindowAcceptsMaxHeight() {
+    func testSettingsWindowAcceptsPerTabHeights() {
         let contract = GeneralTabContract(
             appearance: { Text("A") },
             language:   { Text("L") }
         )
-        // maxHeight 指定ありの公開 init が利用可能であること、および body 評価が通ることを担保する。
-        let window = SettingsWindow(general: contract, maxHeight: 600) { Text("Custom Tab") }
+        // heights / defaultHeight 指定ありの公開 init が利用可能であること、および
+        // body 評価が通ることを担保する。
+        let window = SettingsWindow(
+            general: contract,
+            heights: [
+                SettingsWindow<Text>.generalTabId: 350,
+                "shortcuts": 600
+            ],
+            defaultHeight: 400
+        ) {
+            Text("Custom Tab").tag("shortcuts")
+        }
         _ = window.body
     }
 }

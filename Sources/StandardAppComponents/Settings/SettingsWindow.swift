@@ -2,38 +2,60 @@ import SwiftUI
 
 public struct SettingsWindow<AppTabs: View>: View {
     private let general: GeneralTabContract
+    private let heights: [String: CGFloat]
+    private let defaultHeight: CGFloat
     private let appTabs: () -> AppTabs
-    private let maxHeight: CGFloat?
+
+    @State private var selectedTabId: String
+    @State private var currentHeight: CGFloat
+
+    /// General タブを識別する固定 tag。consumer の `appTabs` 側もすべての追加タブに
+    /// `.tag("...")` を当てる必要がある (selection binding が String 一致で動くため)。
+    public static var generalTabId: String { "general" }
 
     /// - Parameters:
     ///   - general: General タブのスロット契約
-    ///   - maxHeight: タブ切り替え時にウィンドウが伸びる **上限の高さ**。`nil` (デフォルト) なら
-    ///     上限なしで TabView の自然なサイズに従う。値を指定すると、各タブの自然な高さが
-    ///     上限に達するまではタブごとに高さが可変、超える分はそのタブ内 (`Form` 等) の
-    ///     スクロールで吸収される。**全タブの高さを揃える従来挙動には戻らない** ことに注意。
-    ///   - appTabs: アプリ独自の追加タブ
+    ///   - heights: タブの tag (`String`) → そのタブを表示する時のウィンドウ高さの map。
+    ///     存在しない tag は `defaultHeight` にフォールバック。タブを切り替えると
+    ///     対応する高さに **アニメーション付きで変動** する。
+    ///   - defaultHeight: `heights` に entry がないタブに使うデフォルト高さ (default 350pt)。
+    ///   - appTabs: アプリ独自の追加タブ。すべてに `.tag("...")` が必要。
     public init(
         general: GeneralTabContract,
-        maxHeight: CGFloat? = nil,
+        heights: [String: CGFloat] = [:],
+        defaultHeight: CGFloat = 350,
         @ViewBuilder appTabs: @escaping () -> AppTabs = { EmptyView() }
     ) {
         self.general = general
-        self.maxHeight = maxHeight
+        self.heights = heights
+        self.defaultHeight = defaultHeight
         self.appTabs = appTabs
+        self._selectedTabId = State(initialValue: Self.generalTabId)
+        self._currentHeight = State(initialValue: heights[Self.generalTabId] ?? defaultHeight)
     }
 
     public var body: some View {
-        TabView {
+        TabView(selection: $selectedTabId) {
             GeneralTabContent(contract: general)
+                .tag(Self.generalTabId)
                 .tabItem { Label("General", systemImage: "gearshape") }
                 .keyboardShortcut("1", modifiers: .command)
 
             appTabs()
         }
-        // タブ切り替えで高さがそのタブの自然なサイズに追従するように fixedSize で縦に貼り付ける。
-        // 上に frame(maxHeight:) を被せることで「上限まで伸ばすが超えない」を実現する。
-        .frame(maxHeight: maxHeight ?? .infinity)
-        .fixedSize(horizontal: false, vertical: true)
+        // selection 切り替えで height を変更する。fixedSize ではなく明示的な
+        // .frame(height:) にしているのは、TabView の "ideal" が全タブ max にキャッシュ
+        // されてしまい、短いタブに切り替えても縮まない挙動を回避するため。
+        .frame(height: currentHeight)
+        .onChange(of: selectedTabId) { _, newId in
+            withAnimation(.spring(response: 0.35, dampingFraction: 0.85)) {
+                currentHeight = height(for: newId)
+            }
+        }
         .standardSettingsBehaviors()
+    }
+
+    private func height(for tabId: String) -> CGFloat {
+        heights[tabId] ?? defaultHeight
     }
 }
