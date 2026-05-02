@@ -6,14 +6,19 @@ public extension View {
     ///
     /// macOS の `Settings` シーンと `Form.formStyle(.grouped)` の組み合わせでは
     /// `.preferredColorScheme(_:)` だけでは grouped 背景の `NSColor` が `NSWindow`
-    /// の `effectiveAppearance` を読むため追従しない。本モディファイアは
-    /// `.preferredColorScheme(_:)` に加えて `NSApp.appearance` を併せて設定し、
-    /// SwiftUI / AppKit 双方の見た目を一致させる。
+    /// の `effectiveAppearance` を読むため追従しない。さらに、一度
+    /// `.preferredColorScheme(.dark)` で `NSWindow.appearance` が明示セット
+    /// されると、`.preferredColorScheme(nil)` を当てても per-window appearance が
+    /// クリアされず、`Dark → System` の戻しが半端になる。
+    ///
+    /// 本モディファイアはこれらを以下で解決する:
+    /// 1. `NSApp.appearance` を更新 (新規 NSWindow / explicit appearance を持たない既存 NSWindow に効く)
+    /// 2. 既存の全 `NSWindow.appearance` を明示的に上書き (`.preferredColorScheme` の取りこぼしをカバー)
     ///
     /// - Parameter scheme: 強制したい `ColorScheme`。`nil` の場合はシステム追従。
-    /// - Important: `NSApp.appearance` は全 `NSWindow` に効くため、アプリ単位での
-    ///   外観統一に向く。ウィンドウごとに異なる外観を出したい場合は本モディファイアを
-    ///   使わず、各ウィンドウで `.preferredColorScheme` のみ使用すること。
+    /// - Important: アプリ単位での外観統一を前提とした API。ウィンドウごとに
+    ///   異なる外観を出したい場合は本モディファイアを使わず、各ウィンドウで
+    ///   `.preferredColorScheme` のみ使用すること。
     func applyAppAppearance(_ scheme: ColorScheme?) -> some View {
         modifier(AppAppearanceModifier(scheme: scheme))
     }
@@ -24,9 +29,16 @@ private struct AppAppearanceModifier: ViewModifier {
 
     func body(content: Content) -> some View {
         content
-            .preferredColorScheme(scheme)
             .onChange(of: scheme, initial: true) { _, new in
-                NSApp.appearance = Self.nsAppearance(for: new)
+                let nsAppearance = Self.nsAppearance(for: new)
+                NSApp.appearance = nsAppearance
+                // `.preferredColorScheme(.dark)` で per-window appearance が
+                // 明示セットされた NSWindow は、preferredColorScheme(nil) では
+                // クリアされない実装挙動がある。NSApp 側だけ nil にしても
+                // window 側に残り続けるので、ここで明示的に揃える。
+                for window in NSApp.windows {
+                    window.appearance = nsAppearance
+                }
             }
     }
 
