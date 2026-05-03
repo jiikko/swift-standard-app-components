@@ -23,7 +23,13 @@ public enum StandardAppComponentsLocalization {
         "Appearance",
         "Language",
         "Open at Login",
-        "Show in Menu Bar"
+        "Show in Menu Bar",
+        // LanguageSection
+        "System Default",
+        "Language Changed",
+        "Restart the app to apply the new language.",
+        "Restart Now",
+        "Later"
     ]
 
     /// 必須キーが全 supported locale で翻訳済みエントリを持っているか検証する。
