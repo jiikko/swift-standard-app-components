@@ -21,7 +21,9 @@ public enum StandardAppComponentsLocalization {
     public static let requiredKeys: [String] = [
         "General",
         "Appearance",
-        "Language"
+        "Language",
+        "Open at Login",
+        "Show in Menu Bar"
     ]
 
     /// 必須キーが全 supported locale で翻訳済みエントリを持っているか検証する。

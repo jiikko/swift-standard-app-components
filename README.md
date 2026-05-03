@@ -20,11 +20,24 @@ Personal SPM. macOS アプリ向けの再利用可能な標準コンポーネン
 | `View.autoSaveWindowFrame(name: String)` | hosting している `NSWindow` に `setFrameAutosaveName` を当て、ウィンドウサイズと位置を `UserDefaults` に永続化する。 |
 | `WindowBackgroundView` | `NSVisualEffectView` を SwiftUI から使うラッパー。`.background(WindowBackgroundView())` で macOS 標準アプリと同じ vibrancy material を当てられる。フラットな `Color` 塗りでは Settings 等と視覚的に揃わない問題を解消。 |
 
+### Launch at Login
+
+| API | 役割 |
+|-----|------|
+| `LaunchAtLoginService` | `SMAppService.mainApp` の薄いラッパー。`isEnabled` 取得と `setEnabled(_:)` を提供。Bundle ID は `Bundle.main` から自動解決するため引数なし。自前 UI で制御したい consumer はこちらを直接使う。 |
+| `LaunchAtLoginToggle` | `LaunchAtLoginService` と双方向同期する labeled Toggle。System Settings 側で外部変更されても `scenePhase == .active` 時に再読込。`@AppStorage` 等にキャッシュせず、毎回 system 状態を読むことで真実の所在を `SMAppService` に集約する。consumer は `appSections` に Section ごと差し込んで使う。 |
+
+### Menu Bar
+
+| API | 役割 |
+|-----|------|
+| `MenuBarVisibilityToggle` | `Binding<Bool>` を受け取るだけの labeled Toggle。**lib 側は UI と localization のみ提供**し、NSStatusItem の生成 / 破棄やアイコン / メニュー実装は consumer 側に閉じる (各アプリ固有のため)。consumer は binding の変化を観測して NSStatusItem を生成 / 破棄する。 |
+
 ### Localization
 
 | API | 役割 |
 |-----|------|
-| `StandardAppComponentsLocalization.requiredKeys` | SettingsWindow 等が使う必須ローカライズキーの一覧 (`General` / `Appearance` / `Language` 等)。 |
+| `StandardAppComponentsLocalization.requiredKeys` | lib が同梱 View で使う必須ローカライズキーの一覧 (`General` / `Appearance` / `Language` / `Open at Login` / `Show in Menu Bar`)。 |
 | `StandardAppComponentsLocalization.validateRequiredKeys()` | `Localizable.xcstrings` を直接 parse して、必須キーが全 supported locale (`en` / `ja` ...) で翻訳済みエントリを持っているか検証。**1 件でも欠けていれば `fatalError` で停止**。consumer はアプリ起動時に呼び出してローカライズ漏れを早期検出する。 |
 
 ローカライズ辞書は `Sources/StandardAppComponents/Resources/Localizable.xcstrings` (String Catalog) で一元管理。新しい lib API を追加する時は xcstrings に対応エントリを追加し、`requiredKeys` にキーを追記すること (CI / 起動時 validation で漏れが落ちる)。
