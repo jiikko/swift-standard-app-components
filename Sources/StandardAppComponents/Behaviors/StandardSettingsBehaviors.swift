@@ -6,9 +6,16 @@ public extension View {
     ///
     /// 現状の責務は **ESC キーで Settings ウィンドウを閉じる** こと。
     /// 隠し `Button` + `.keyboardShortcut(.cancelAction)` ベースで実装しており、
-    /// `TextField` / `Picker` 等にフォーカスがあっても ESC が確実に届く
+    /// `TextField` / `Picker` 等にフォーカスがあっても通常 ESC が届く
     /// (`.onExitCommand` は responder chain の事情で TextField 等にフォーカスがあると
     /// 取りこぼすことがあるため避けている)。
+    ///
+    /// - Note: **`.keyboardShortcut(.cancelAction)` は SwiftUI / OS の世代に依存**
+    ///   する仕組みのため、TextField の field editor が Escape を消費してしまうケースが
+    ///   将来 OS 側の挙動変化で再発する可能性は完全には排除できない。実機で確実に取り
+    ///   こぼす再現が出た場合は `NSWindow` 単位で `keyDown` / `cancelOperation` を捕捉する
+    ///   accessor view ベースの実装に切り替える (現状そのレベルの問題は観測されていない
+    ///   ため、複雑度を増やさずに `.cancelAction` ベースに留めている)。
     ///
     /// 閉じる対象は `NSApp.keyWindow` ではなく、本 modifier が attach された View が
     /// 実際に hosting されている `NSWindow` を `NSViewRepresentable` 経由で捕捉して使う。
