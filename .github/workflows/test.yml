@@ -27,19 +27,17 @@ jobs:
     # 本リポは public なので macOS runner は無料 (.claude/rules/gha-runner.md 参照)。
     runs-on: macos-15
 
-    # 複数 Swift / Xcode バージョンで並行テスト。consumer アプリも複数のツール
-    # チェーンで使われるので、ライブラリ側で「ビルド可能な範囲」を担保する。
+    # Xcode = Swift toolchain (macOS では一体) なので、Xcode を matrix に
+    # することが実質的な Swift バージョン matrix になる。現状は 26 系のみを
+    # サポート対象とする (Xcode 16 系は consumer アプリで実用されておらず、
+    # 16.4 で swift test が落ちることも確認済み)。
     #
-    # GHA macOS runner にプリインストールされた Xcode しか使えない (新しすぎる
-    # 版は `Could not find Xcode version` で落ちる) ので、`latest-stable` と
-    # 「16 系の最新」を試す。runner image が更新されると順次新しい組み合わせ
-    # に追従する。
+    # 将来 27 系や 26 系の新マイナーが出た時にここに追加する。
     strategy:
-      fail-fast: false  # 1 つの組み合わせで落ちても他のテストは続ける
+      fail-fast: false
       matrix:
         xcode:
-          - latest-stable  # runner にある最新 stable (現状 26.x or 16.x のどちらか)
-          - "16.4"         # Xcode 16 系の latest stable
+          - latest-stable  # runner にある最新 stable (現状 26.x)
 
     name: swift test (Xcode ${{ matrix.xcode }})
 
