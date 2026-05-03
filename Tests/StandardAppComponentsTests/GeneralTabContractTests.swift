@@ -49,4 +49,20 @@ final class GeneralTabContractTests: XCTestCase {
         }
         _ = window.body
     }
+
+    func testSettingsWindowAcceptsWidth() {
+        let contract = GeneralTabContract(
+            appearance: { Text("A") },
+            language:   { Text("L") }
+        )
+        // width 指定ありの公開 init が利用可能であることを担保する。
+        let window = SettingsWindow(
+            general: contract,
+            width: 520,
+            heights: ["shortcuts": 600]
+        ) {
+            Text("Custom Tab").tag("shortcuts")
+        }
+        _ = window.body
+    }
 }

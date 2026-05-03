@@ -2,6 +2,7 @@ import SwiftUI
 
 public struct SettingsWindow<AppTabs: View>: View {
     private let general: GeneralTabContract
+    private let width: CGFloat?
     private let heights: [String: CGFloat]
     private let defaultHeight: CGFloat
     private let appTabs: () -> AppTabs
@@ -15,6 +16,9 @@ public struct SettingsWindow<AppTabs: View>: View {
 
     /// - Parameters:
     ///   - general: General タブのスロット契約
+    ///   - width: ウィンドウの横幅 (全タブ共通)。`nil` (デフォルト) なら TabView の
+    ///     自然な幅 (タブ内コンテンツ依存) に従う。Settings ウィンドウは慣例的に
+    ///     全タブで横幅を揃えるため、per-tab ではなく単一値で受け取る。
     ///   - heights: タブの tag (`String`) → そのタブを表示する時のウィンドウ高さの map。
     ///     存在しない tag は `defaultHeight` にフォールバック。タブを切り替えると
     ///     対応する高さに **アニメーション付きで変動** する。
@@ -22,11 +26,13 @@ public struct SettingsWindow<AppTabs: View>: View {
     ///   - appTabs: アプリ独自の追加タブ。すべてに `.tag("...")` が必要。
     public init(
         general: GeneralTabContract,
+        width: CGFloat? = nil,
         heights: [String: CGFloat] = [:],
         defaultHeight: CGFloat = 350,
         @ViewBuilder appTabs: @escaping () -> AppTabs = { EmptyView() }
     ) {
         self.general = general
+        self.width = width
         self.heights = heights
         self.defaultHeight = defaultHeight
         self.appTabs = appTabs
@@ -46,7 +52,8 @@ public struct SettingsWindow<AppTabs: View>: View {
         // selection 切り替えで height を変更する。fixedSize ではなく明示的な
         // .frame(height:) にしているのは、TabView の "ideal" が全タブ max にキャッシュ
         // されてしまい、短いタブに切り替えても縮まない挙動を回避するため。
-        .frame(height: currentHeight)
+        // width は nil なら .frame 側で no-op (制約しない) になる。
+        .frame(width: width, height: currentHeight)
         .onChange(of: selectedTabId) { _, newId in
             withAnimation(.spring(response: 0.35, dampingFraction: 0.85)) {
                 currentHeight = height(for: newId)
