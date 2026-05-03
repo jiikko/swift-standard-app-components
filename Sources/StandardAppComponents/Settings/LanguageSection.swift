@@ -62,11 +62,17 @@ public struct LanguageSection: View {
                 Text(lang.displayName).tag(String?.some(lang.code))
             }
         } label: {
-            EmptyView()
+            // VoiceOver / accessibility 用の意味のある label。
+            // `.labelsHidden()` で視覚的には消すが、`EmptyView` だと control label が
+            // 失われ accessibility が弱くなるため `Text` を渡しておく (Codex review #3)。
+            Text("Language", bundle: .module)
         }
         .labelsHidden()
-        // section header (lib 提供の "言語") があるので picker 自身に label を付けないが、
-        // macOS Form の慣例である「label 左 / field 右」のうち field を行末に揃えるため
+        // GeneralTabContent.swift の anti-pattern ガイダンス (`.labelsHidden()` は避ける)
+        // に対する **意図的な例外**: LanguageSection は section header (= "Language") が
+        // 既に row の意味を表しているため、視覚的に label を 2 重に出さないように
+        // `.labelsHidden()` で隠す。VoiceOver には上の Text("Language") が伝わる。
+        // macOS Form の慣例「label 左 / field 右」のうち field を行末に揃えるため、
         // alignment: .trailing で row 全幅に広げて picker を右端へ寄せる。
         .frame(maxWidth: .infinity, alignment: .trailing)
         .onAppear {

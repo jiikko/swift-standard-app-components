@@ -16,6 +16,10 @@ struct GeneralTabContent: View {
             // 崩れて非標準の見た目になるため避ける。複雑な行 (HStack で複数コントロールを
             // 並べる等) を載せる場合は consumer 側で row 全体に `.frame(maxWidth: .infinity,
             // alignment: .leading)` を当てて整えること。
+            //
+            // 例外: lib 提供の `LanguageSection` は section header と row label が同一概念
+            // (= "Language") のため、視覚的に label 2 重表示を避けて `.labelsHidden()` を
+            // 使う。VoiceOver には Picker label の `Text("Language")` が伝わる。
             Section {
                 contract.appearance
             } header: {
