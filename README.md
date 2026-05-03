@@ -20,6 +20,15 @@ Personal SPM. macOS アプリ向けの再利用可能な標準コンポーネン
 | `View.autoSaveWindowFrame(name: String)` | hosting している `NSWindow` に `setFrameAutosaveName` を当て、ウィンドウサイズと位置を `UserDefaults` に永続化する。 |
 | `WindowBackgroundView` | `NSVisualEffectView` を SwiftUI から使うラッパー。`.background(WindowBackgroundView())` で macOS 標準アプリと同じ vibrancy material を当てられる。フラットな `Color` 塗りでは Settings 等と視覚的に揃わない問題を解消。 |
 
+### Localization
+
+| API | 役割 |
+|-----|------|
+| `StandardAppComponentsLocalization.requiredKeys` | SettingsWindow 等が使う必須ローカライズキーの一覧 (`General` / `Appearance` / `Language` 等)。 |
+| `StandardAppComponentsLocalization.validateRequiredKeys()` | `Localizable.xcstrings` を直接 parse して、必須キーが全 supported locale (`en` / `ja` ...) で翻訳済みエントリを持っているか検証。**1 件でも欠けていれば `fatalError` で停止**。consumer はアプリ起動時に呼び出してローカライズ漏れを早期検出する。 |
+
+ローカライズ辞書は `Sources/StandardAppComponents/Resources/Localizable.xcstrings` (String Catalog) で一元管理。新しい lib API を追加する時は xcstrings に対応エントリを追加し、`requiredKeys` にキーを追記すること (CI / 起動時 validation で漏れが落ちる)。
+
 ## Build
 
 ```bash
