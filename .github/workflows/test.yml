@@ -33,15 +33,22 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      # Xcode の SDK / Swift toolchain を固定する。`maxim-lobanov/setup-xcode`
-      # は xcode-select をラップした action で、runner にプリインストール
-      # された中で指定したバージョンを解決する。
-      # 26.4 固定の理由: ローカル開発が 26.4.1 で動作確認済みなので、
-      # 同系列で揃える。`26.4` 表記は patch 違い (26.4.x) を許容する。
-      - name: Select Xcode 26.4
+      # Xcode の SDK / Swift toolchain を選ぶ。`maxim-lobanov/setup-xcode` は
+      # xcode-select をラップした action で、runner にプリインストールされた
+      # 中で指定バージョンを解決する。
+      #
+      # 過去の試行: `'26.4'` 固定を試したが、GHA macOS runner に該当 Xcode が
+      # プリインストールされていないため "Could not find Xcode version that
+      # satisfied version spec" で失敗。runner image の更新サイクルがローカル
+      # Xcode (26.4.1 が出ている) より遅いことが理由。
+      #
+      # 選択肢として `latest-stable` を採用。runner-image が更新されると自動
+      # 追従する。ライブラリ側で SDK 依存の最新追従が崩れていないかを早期
+      # 検出する役割も果たせる。
+      - name: Select latest stable Xcode
         uses: maxim-lobanov/setup-xcode@v1
         with:
-          xcode-version: '26.4'
+          xcode-version: latest-stable
 
       - name: Xcode / Swift version
         run: |
