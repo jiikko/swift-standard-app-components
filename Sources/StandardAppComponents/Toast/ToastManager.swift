@@ -150,6 +150,10 @@ public final class ToastManager: ToastManaging {
         queueProcessingTask?.cancel()
         queueProcessingTask = Task { @MainActor [weak self] in
             try? await Task.sleep(for: .seconds(DisplayConstants.processingDelay))
+            // sleep が cancel された場合は何もしない (try? が CancellationError を
+            // 握り潰すため、Task.isCancelled で明示的にチェックしないと cancel された
+            // タスクが processQueue を呼んでキューが多重に進む)。
+            guard !Task.isCancelled else { return }
             self?.isProcessing = false
             self?.processQueue()
         }
@@ -191,6 +195,10 @@ public final class ToastManager: ToastManaging {
         dismissSwiftTask?.cancel()
         dismissSwiftTask = Task { @MainActor [weak self] in
             try? await Task.sleep(for: .seconds(duration))
+            // sleep が cancel された場合は何もしない (try? が CancellationError を
+            // 握り潰すため、Task.isCancelled で明示的にチェックしないと cancel された
+            // タスクが dismiss を呼んでキューが多重に進む)。
+            guard !Task.isCancelled else { return }
             self?.dismiss()
         }
     }
