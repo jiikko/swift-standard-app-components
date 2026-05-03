@@ -15,28 +15,32 @@ import SwiftUI
 ///   `LocalizedStringResource` に移行
 /// - #344: 動的値まで catalog lookup される副作用を是正するため、`message` は
 ///   `ToastText` で localized / verbatim を分離
-@MainActor
+///
+/// Actor isolation: protocol 自体は actor-agnostic (Sendable のみ要求)。各メソッドは
+/// 個別に `@MainActor` で UI 操作を強制する。protocol 全体に `@MainActor` を付けると、
+/// `any ToastManaging` を `EnvironmentValues` に乗せた時に `WritableKeyPath` が
+/// 作れなくなる (consumer 側で `View.environment(\.toastManager, ...)` が型エラー)。
 public protocol ToastManaging: AnyObject, Sendable {
     /// 現在表示中のトースト。
-    var currentToast: Toast? { get }
+    @MainActor var currentToast: Toast? { get }
 
     /// トーストを表示する (キューに追加)。
-    func show(_ toast: Toast)
+    @MainActor func show(_ toast: Toast)
 
     /// 成功トーストを表示 (便利メソッド)。
-    func showSuccess(_ title: LocalizedStringResource, message: ToastText?, duration: TimeInterval)
+    @MainActor func showSuccess(_ title: LocalizedStringResource, message: ToastText?, duration: TimeInterval)
 
     /// エラートーストを表示 (便利メソッド)。エラーは長めに表示。
-    func showError(_ title: LocalizedStringResource, message: ToastText?)
+    @MainActor func showError(_ title: LocalizedStringResource, message: ToastText?)
 
     /// 情報トーストを表示 (便利メソッド)。
-    func showInfo(_ title: LocalizedStringResource, message: ToastText?, duration: TimeInterval)
+    @MainActor func showInfo(_ title: LocalizedStringResource, message: ToastText?, duration: TimeInterval)
 
     /// 警告トーストを表示 (便利メソッド)。
-    func showWarning(_ title: LocalizedStringResource, message: ToastText?, duration: TimeInterval)
+    @MainActor func showWarning(_ title: LocalizedStringResource, message: ToastText?, duration: TimeInterval)
 
     /// アクション付きトーストを表示。
-    func showWithAction(
+    @MainActor func showWithAction(
         style: Toast.Style,
         title: LocalizedStringResource,
         message: ToastText?,
@@ -45,36 +49,41 @@ public protocol ToastManaging: AnyObject, Sendable {
     )
 
     /// 現在のトーストを即座に消去。
-    func dismiss()
+    @MainActor func dismiss()
 
     /// 全てのトーストをクリア。
-    func clearAll()
+    @MainActor func clearAll()
 }
 
 // MARK: - Default Parameter Extensions
 
 extension ToastManaging {
     /// `message` / `duration` 省略可能な便利オーバーロード。
+    @MainActor
     public func showSuccess(_ title: LocalizedStringResource, message: ToastText? = nil, duration: TimeInterval = 3.0) {
         showSuccess(title, message: message, duration: duration)
     }
 
     /// `message` 省略可能な便利オーバーロード (エラーは duration 固定で 5 秒)。
+    @MainActor
     public func showError(_ title: LocalizedStringResource, message: ToastText? = nil) {
         showError(title, message: message)
     }
 
     /// `message` / `duration` 省略可能な便利オーバーロード。
+    @MainActor
     public func showInfo(_ title: LocalizedStringResource, message: ToastText? = nil, duration: TimeInterval = 3.0) {
         showInfo(title, message: message, duration: duration)
     }
 
     /// `message` / `duration` 省略可能な便利オーバーロード (警告は default 4 秒)。
+    @MainActor
     public func showWarning(_ title: LocalizedStringResource, message: ToastText? = nil, duration: TimeInterval = 4.0) {
         showWarning(title, message: message, duration: duration)
     }
 
     /// `message` / `duration` 省略可能な便利オーバーロード (action 付きは default 5 秒)。
+    @MainActor
     public func showWithAction(
         style: Toast.Style,
         title: LocalizedStringResource,
