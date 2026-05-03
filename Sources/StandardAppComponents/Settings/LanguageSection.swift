@@ -6,19 +6,19 @@ import SwiftUI
 /// `GeneralTabContract.language` の slot にそのまま流し込んで使う:
 ///
 /// ```swift
-/// SettingsWindow(
-///     general: GeneralTabContract(
-///         appearance: { ... },
-///         language: {
-///             LanguageSection(
-///                 supportedLanguages: [
-///                     .init(code: "en", displayName: "English"),
-///                     .init(code: "ja", displayName: "日本語")
-///                 ],
-///                 onRestart: { NSApp.terminate(nil) }
-///             )
-///         }
-///     )
+/// // (1) consumer が relaunch 経路を持っていない場合: onRestart 省略 (default = nil)。
+/// //     alert のボタンは "Quit Now" になり、押すと NSApp.terminate(nil) で終了するだけ。
+/// //     ユーザーは自分でアプリを再度開く必要がある。
+/// LanguageSection(supportedLanguages: [
+///     .init(code: "en", displayName: "English"),
+///     .init(code: "ja", displayName: "日本語")
+/// ])
+///
+/// // (2) consumer が relaunch を提供できる場合: onRestart に relaunch closure を渡す。
+/// //     alert のボタンは "Restart Now" になり、押すと onRestart() が呼ばれる。
+/// LanguageSection(
+///     supportedLanguages: [.init(code: "en", displayName: "English")],
+///     onRestart: { /* consumer 側の relaunch 実装 (Sparkle relaunch / launch helper 等) */ }
 /// )
 /// ```
 ///

@@ -55,7 +55,9 @@ Settings { ... }                    ← consumer の Scene
 
 ### Settings シーン専用挙動 (`View.standardSettingsBehaviors()`)
 
-ESC で owning window を閉じる。隠し `Button` + `.keyboardShortcut(.cancelAction)` ベースで TextField にフォーカスがあっても確実に発火する (`.onExitCommand` の取りこぼしを回避)。`SettingsWindow` 内で自動適用されているため通常 consumer が直接呼ぶ必要はない。
+ESC で owning window を閉じる。隠し `Button` + `.keyboardShortcut(.cancelAction)` ベースで実装しており、`TextField` 等にフォーカスがあっても通常 ESC が届く (`.onExitCommand` は responder chain の事情で取りこぼすことがあるため避けている)。`SettingsWindow` 内で自動適用されているため通常 consumer が直接呼ぶ必要はない。
+
+`.cancelAction` は SwiftUI / OS 世代に依存する仕組みで「絶対に取りこぼさない保証」ではない。実機で TextField focus 中の ESC 不発が再現した場合は `NSWindow` 単位の `keyDown` 捕捉に切り替える方針 (現状その問題は観測されていないため、`.cancelAction` ベースに留めて複雑度を抑えている)。
 
 ### 起動時ローカライズ検証 (`StandardAppComponentsLocalization.validateRequiredKeys()`)
 
@@ -101,7 +103,7 @@ Picker("テーマ", selection: appearanceBinding) {
 
 | API | 役割 |
 |---|---|
-| `LanguageSection(supportedLanguages:onRestart:)` | `language` slot に流し込む View。`Picker` 変更で **即時 apply** → 「Later / Restart Now」alert を出す UX (Apple System Settings の言語変更フローに揃える)。`onRestart` のデフォルトは `NSApp.terminate(nil)`。consumer が relaunch を持っていれば差し替える |
+| `LanguageSection(supportedLanguages:onRestart:)` | `language` slot に流し込む View。`Picker` 変更で **即時 apply** → alert を出す UX (Apple System Settings の言語変更フローに揃える)。`onRestart` の有無で alert ボタンの文言と挙動が変わる: **`onRestart = nil` (デフォルト)** だと「Later / **Quit Now**」が出て Quit Now で `NSApp.terminate(nil)` を呼ぶ (= 終了するだけで再起動はしない)。**`onRestart` 渡し** だと「Later / **Restart Now**」が出て Restart Now で `onRestart()` を呼ぶ。consumer が Sparkle relaunch / launch helper 等で本当に再起動できる時だけ closure を渡し、relaunch 経路がなければ default のまま使うこと |
 | `LanguageOption(code:displayName:)` | 選択肢の値型。`code` は `AppleLanguages` UserDefaults に書き込む ISO 639-1 (例: `"en"` / `"ja"`)、`displayName` は Picker 表示文字列 (各言語の native 表記推奨) |
 
 **採用すべきアプリ種別**: アプリ内ローカライズを複数言語提供するアプリ。
