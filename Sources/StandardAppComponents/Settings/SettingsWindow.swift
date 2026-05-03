@@ -8,7 +8,6 @@ public struct SettingsWindow<AppTabs: View>: View {
     private let appTabs: () -> AppTabs
 
     @State private var selectedTabId: String
-    @State private var currentHeight: CGFloat
 
     /// General タブを識別する固定 tag。consumer の `appTabs` 側もすべての追加タブに
     /// `.tag("...")` を当てる必要がある (selection binding が String 一致で動くため)。
@@ -26,7 +25,8 @@ public struct SettingsWindow<AppTabs: View>: View {
     ///     全タブで横幅を揃えるため、per-tab ではなく単一値で受け取る。
     ///   - heights: タブの tag (`String`) → そのタブを表示する時のウィンドウ高さの map。
     ///     存在しない tag は `defaultHeight` にフォールバック。タブを切り替えると
-    ///     対応する高さに **アニメーション付きで変動** する。
+    ///     対応する高さに **アニメーション付きで変動** する。consumer 側で動的に
+    ///     map を更新した場合も、現在表示中のタブを含めて反映される (derived 値)。
     ///   - defaultHeight: `heights` に entry がないタブに使うデフォルト高さ (default 350pt)。
     ///   - appTabs: アプリ独自の追加タブ。すべてに `.tag("...")` が必要。
     public init(
@@ -42,7 +42,6 @@ public struct SettingsWindow<AppTabs: View>: View {
         self.defaultHeight = defaultHeight
         self.appTabs = appTabs
         self._selectedTabId = State(initialValue: Self.generalTabId)
-        self._currentHeight = State(initialValue: heights[Self.generalTabId] ?? defaultHeight)
     }
 
     public var body: some View {
@@ -64,19 +63,23 @@ public struct SettingsWindow<AppTabs: View>: View {
         // .frame(height:) にしているのは、TabView の "ideal" が全タブ max にキャッシュ
         // されてしまい、短いタブに切り替えても縮まない挙動を回避するため。
         // width は nil なら .frame 側で no-op (制約しない) になる。
+        //
+        // height は @State にキャッシュせず `selectedTabId` / `heights` / `defaultHeight`
+        // から derived 値として計算する。`@State currentHeight` で持つと heights 等の
+        // 親更新を取りこぼす (init の initialValue で固定されたまま) ため。
+        //
         // animation は overshoot しない easeInOut。spring(damping<1.0) だと身長が
         // 縮むタブに切り替えた瞬間に下端が目標より小さい高さまで突き抜けてから戻り、
         // 上端の content が「上にバウンス」して見えるため。
-        .frame(width: width, height: currentHeight)
-        .onChange(of: selectedTabId) { _, newId in
-            withAnimation(.easeInOut(duration: 0.25)) {
-                currentHeight = height(for: newId)
-            }
-        }
+        .frame(width: width, height: targetHeight)
+        .animation(.easeInOut(duration: 0.25), value: targetHeight)
         .standardSettingsBehaviors()
     }
 
-    private func height(for tabId: String) -> CGFloat {
-        heights[tabId] ?? defaultHeight
+    /// 現在の `selectedTabId` に対応する目標高さ。`heights` map に entry がなければ
+    /// `defaultHeight` にフォールバック。derived 値なので `heights` / `defaultHeight` を
+    /// consumer 側で動的に変更しても直ちに反映される。
+    private var targetHeight: CGFloat {
+        heights[selectedTabId] ?? defaultHeight
     }
 }
