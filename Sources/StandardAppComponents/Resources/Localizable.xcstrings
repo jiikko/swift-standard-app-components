@@ -146,7 +146,7 @@
       }
     },
     "Restart Now": {
-      "comment": "LanguageSection - language picker / restart alert",
+      "comment": "LanguageSection - language picker / restart alert (when consumer provides onRestart closure)",
       "extractionState": "manual",
       "localizations": {
         "en": {
@@ -159,6 +159,24 @@
           "stringUnit": {
             "state": "translated",
             "value": "いますぐ再起動"
+          }
+        }
+      }
+    },
+    "Quit Now": {
+      "comment": "LanguageSection - language picker / restart alert (default behavior when onRestart is nil; the app only quits and consumer must reopen)",
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Quit Now"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "アプリを終了"
           }
         }
       }

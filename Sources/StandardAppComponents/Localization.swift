@@ -29,6 +29,7 @@ public enum StandardAppComponentsLocalization {
         "Language Changed",
         "Restart the app to apply the new language.",
         "Restart Now",
+        "Quit Now",
         "Later"
     ]
 

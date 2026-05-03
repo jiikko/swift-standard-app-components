@@ -25,14 +25,20 @@ import SwiftUI
 /// 設計:
 /// - `Picker` の選択変更で **即時 apply** (macOS System Settings の言語変更フローに揃える)。
 ///   Apply ボタン経由の確定 step は持たない。
-/// - apply 後は alert で **Later / Restart Now** の 2 択を出す。Restart Now で
-///   `onRestart` callback を呼ぶ。デフォルトは `NSApp.terminate(nil)` で、自動再起動が
-///   必要な consumer は relaunch 関数を渡す。
+/// - apply 後は alert で 2 択を出す:
+///   - **`onRestart` を渡した場合**: 「Later / Restart Now」。Restart Now で `onRestart`
+///     を呼ぶ。consumer が relaunch 経路を持っている時に使う。
+///   - **`onRestart` を渡さなかった場合 (デフォルト)**: 「Later / Quit Now」。
+///     Quit Now で `NSApp.terminate(nil)` を呼ぶ (= 終了するだけで再起動はしない)。
+///     ボタン文言と挙動を一致させるため、デフォルトでは "Restart Now" は表示しない。
 /// - System Default オプションは lib 側で先頭に自動追加するので consumer の
 ///   `supportedLanguages` には含めない。
 public struct LanguageSection: View {
     private let supportedLanguages: [LanguageOption]
-    private let onRestart: () -> Void
+    /// consumer から渡された restart 関数。`nil` ならデフォルト挙動 (Quit Now: terminate)。
+    /// closure 有無でアラートのボタン文言が変わる (Restart Now / Quit Now) ため、
+    /// 「relaunch 可否」の真実の所在をここで保持する。
+    private let onRestart: (() -> Void)?
 
     @State private var selectedLanguage: String?
     /// 初回 onAppear で system 値を流し込む間、`onChange` を発火させないためのガード。
@@ -43,7 +49,7 @@ public struct LanguageSection: View {
 
     public init(
         supportedLanguages: [LanguageOption],
-        onRestart: @escaping () -> Void = { NSApp.terminate(nil) }
+        onRestart: (() -> Void)? = nil
     ) {
         self.supportedLanguages = supportedLanguages
         self.onRestart = onRestart
@@ -86,10 +92,21 @@ public struct LanguageSection: View {
                 Text("Later", bundle: .module)
             }
 
-            Button {
-                onRestart()
-            } label: {
-                Text("Restart Now", bundle: .module)
+            // onRestart が渡された場合は「再起動」を約束できるので Restart Now、
+            // 渡されていない場合は terminate するだけなので Quit Now と表記して
+            // ボタン文言と挙動を一致させる。
+            if let onRestart {
+                Button {
+                    onRestart()
+                } label: {
+                    Text("Restart Now", bundle: .module)
+                }
+            } else {
+                Button {
+                    NSApp.terminate(nil)
+                } label: {
+                    Text("Quit Now", bundle: .module)
+                }
             }
         } message: {
             Text("Restart the app to apply the new language.", bundle: .module)
