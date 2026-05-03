@@ -17,56 +17,53 @@ on:
       - "Package.resolved"
       - ".github/workflows/test.yml"
 
-# 同じブランチで連続 push されたら古い run はキャンセルする (macOS runner の
-# キューを詰まらせない)。
 concurrency:
   group: test-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
   test:
-    # macOS runner を使う理由: SwiftUI / AppKit に依存する Sources をビルド
-    # するため。Linux runner では SwiftUI が import できず swift build から
-    # 失敗する。本リポは public なので macOS runner は無料 (.claude/rules/gha-runner.md 参照)。
+    # macOS runner を使う理由: SwiftUI / AppKit に依存する Sources をビルドするため。
+    # 本リポは public なので macOS runner は無料 (.claude/rules/gha-runner.md 参照)。
     runs-on: macos-15
+
+    # 複数 Swift / Xcode バージョンで並行テスト。consumer アプリも複数のツール
+    # チェーンで使われるので、ライブラリ側で「ビルド可能な範囲」を担保する。
+    #
+    # GHA macOS runner にプリインストールされた Xcode しか使えない (新しすぎる
+    # 版は `Could not find Xcode version` で落ちる) ので、`latest-stable` と
+    # 「16 系の最新」を試す。runner image が更新されると順次新しい組み合わせ
+    # に追従する。
+    strategy:
+      fail-fast: false  # 1 つの組み合わせで落ちても他のテストは続ける
+      matrix:
+        xcode:
+          - latest-stable  # runner にある最新 stable (現状 26.x or 16.x のどちらか)
+          - "16.4"         # Xcode 16 系の latest stable
+
+    name: swift test (Xcode ${{ matrix.xcode }})
 
     steps:
       - uses: actions/checkout@v4
 
-      # Xcode の SDK / Swift toolchain を選ぶ。`maxim-lobanov/setup-xcode` は
-      # xcode-select をラップした action で、runner にプリインストールされた
-      # 中で指定バージョンを解決する。
-      #
-      # 過去の試行: `'26.4'` 固定を試したが、GHA macOS runner に該当 Xcode が
-      # プリインストールされていないため "Could not find Xcode version that
-      # satisfied version spec" で失敗。runner image の更新サイクルがローカル
-      # Xcode (26.4.1 が出ている) より遅いことが理由。
-      #
-      # 選択肢として `latest-stable` を採用。runner-image が更新されると自動
-      # 追従する。ライブラリ側で SDK 依存の最新追従が崩れていないかを早期
-      # 検出する役割も果たせる。
-      - name: Select latest stable Xcode
+      - name: Select Xcode ${{ matrix.xcode }}
         uses: maxim-lobanov/setup-xcode@v1
         with:
-          xcode-version: latest-stable
+          xcode-version: ${{ matrix.xcode }}
 
       - name: Xcode / Swift version
         run: |
           xcodebuild -version
           swift --version
 
-      # Package.resolved を含めてキャッシュ。SPM dependency は SwiftLintPlugins
-      # 等を含むため、初回 fetch が数十秒かかる。
       - name: Cache SPM
         uses: actions/cache@v4
         with:
           path: .build
-          key: spm-${{ runner.os }}-${{ hashFiles('Package.resolved') }}
+          # matrix を含む cache key にして xcode 違いで cache 衝突しないようにする
+          key: spm-${{ runner.os }}-xcode-${{ matrix.xcode }}-${{ hashFiles('Package.resolved') }}
           restore-keys: |
-            spm-${{ runner.os }}-
+            spm-${{ runner.os }}-xcode-${{ matrix.xcode }}-
 
-      # `swift build` の段階で SwiftLintBuildToolPlugin が動くため、ここで
-      # lint 違反 (error 昇格分) も検出される。Linux 側の swiftlint.yml と
-      # 役割が重複するが、macOS 側の SDK でビルドできる方が確実。
       - name: swift test
         run: swift test --parallel

@@ -13,10 +13,30 @@ on:
       - ".swiftlint.yml"
       - ".github/workflows/swiftlint.yml"
 
+# 同じブランチで連続 push されたら古い run はキャンセルする。
+concurrency:
+  group: swiftlint-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   lint:
-    # shared-workflows の swiftlint.yml を呼ぶ。Linux runner (ubuntu-slim) 上で
-    # SwiftLint linux バイナリを落として `.swiftlint.yml` を読む構成。
-    uses: jiikko/shared-workflows/.github/workflows/swiftlint.yml@main
-    with:
-      swiftlint_version: "0.63.0"
+    # Linux runner で十分。SwiftLint は SDK / Xcode 不要 (静的解析のみ)。
+    # SwiftUI を実際にコンパイルするのは test workflow (macOS) の役目。
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      # SwiftLint Linux バイナリをダウンロード。shared-workflows は
+      # `--config` のみで `--strict` を渡せないため、本リポでは自前で実行する。
+      - name: Download SwiftLint
+        env:
+          SWIFTLINT_VERSION: "0.63.0"
+        run: |
+          curl -sL "https://github.com/realm/SwiftLint/releases/download/${SWIFTLINT_VERSION}/swiftlint_linux_amd64.zip" -o swiftlint.zip
+          unzip -q swiftlint.zip
+          chmod +x swiftlint
+
+      # `--strict` で warning も error 扱い。`.swiftlint.yml` の severity が
+      # warning のままでもこのフラグで全部 exit 2 (= job failure) になる。
+      - name: Run SwiftLint (strict)
+        run: ./swiftlint lint --strict --config .swiftlint.yml Sources
