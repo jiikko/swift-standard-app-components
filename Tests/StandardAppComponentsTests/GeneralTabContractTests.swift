@@ -65,4 +65,20 @@ final class GeneralTabContractTests: XCTestCase {
         }
         _ = window.body
     }
+
+    // MARK: - SettingsWindowConstants
+
+    func testGeneralTabIdConstantIsStable() {
+        // `appTabs` の追加タブが `.tag(...)` で selection binding を合わせるための
+        // 安定 ID。値が変わると consumer 側の hardcoded `.tag("general")` 等が
+        // 知らないうちに壊れるため、wire-format 相当として固定化する。
+        XCTAssertEqual(SettingsWindowConstants.generalTabId, "general")
+    }
+
+    func testGeneralTabIdMatchesGenericTypeAccessor() {
+        // 同じ値が `SettingsWindow<AppTabs>.generalTabId` でも露出している契約。
+        // generic 型パラメータ越しの参照が `SettingsWindowConstants` と一致しているか
+        // を担保する (どちらでも同じ ID を取れる二経路の契約)。
+        XCTAssertEqual(SettingsWindow<EmptyView>.generalTabId, SettingsWindowConstants.generalTabId)
+    }
 }
