@@ -38,4 +38,22 @@ final class StandardAppearanceModeTests: XCTestCase {
         XCTAssertNil(StandardAppearanceMode(rawValue: "bogus"))
         XCTAssertNil(StandardAppearanceMode(rawValue: ""))
     }
+
+    func testCodableRoundTrip() throws {
+        // Codable 対応: consumer が AppSettings 等の Codable struct field として
+        // 持つケースを想定。raw value の文字列で encode され、復元できることを担保する。
+        for mode in StandardAppearanceMode.allCases {
+            let data = try JSONEncoder().encode(mode)
+            let restored = try JSONDecoder().decode(StandardAppearanceMode.self, from: data)
+            XCTAssertEqual(restored, mode)
+        }
+    }
+
+    func testCodableUsesRawStringRepresentation() throws {
+        // Codable の wire format が `"system"` / `"light"` / `"dark"` の文字列であることを
+        // 担保する (= 既存 consumer の AppSettings.json 等が壊れない条件)。
+        let data = try JSONEncoder().encode(StandardAppearanceMode.dark)
+        let json = try XCTUnwrap(String(data: data, encoding: .utf8))
+        XCTAssertEqual(json, "\"dark\"")
+    }
 }

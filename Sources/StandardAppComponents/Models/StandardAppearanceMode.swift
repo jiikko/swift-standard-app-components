@@ -38,7 +38,7 @@ import SwiftUI
 /// // Scene root で外観を当てる
 /// .applyAppAppearance(mode.preferredColorScheme)
 /// ```
-public enum StandardAppearanceMode: String, CaseIterable, Sendable {
+public enum StandardAppearanceMode: String, CaseIterable, Codable, Sendable {
     case system
     case light
     case dark
