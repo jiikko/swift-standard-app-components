@@ -1,0 +1,58 @@
+name: Test
+
+on:
+  push:
+    branches: [master]
+    paths:
+      - "Sources/**/*.swift"
+      - "Tests/**/*.swift"
+      - "Package.swift"
+      - "Package.resolved"
+      - ".github/workflows/test.yml"
+  pull_request:
+    paths:
+      - "Sources/**/*.swift"
+      - "Tests/**/*.swift"
+      - "Package.swift"
+      - "Package.resolved"
+      - ".github/workflows/test.yml"
+
+# 同じブランチで連続 push されたら古い run はキャンセルする (macOS runner の
+# キューを詰まらせない)。
+concurrency:
+  group: test-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    # macOS runner を使う理由: SwiftUI / AppKit に依存する Sources をビルド
+    # するため。Linux runner では SwiftUI が import できず swift build から
+    # 失敗する。本リポは public なので macOS runner は無料 (.claude/rules/gha-runner.md 参照)。
+    runs-on: macos-15
+
+    steps:
+      - uses: actions/checkout@v4
+
+      # Xcode の SDK / Swift toolchain を選ぶ。GitHub-hosted runner には複数
+      # 版が同居しているので明示的に固定する。
+      - name: Select Xcode
+        run: sudo xcode-select -s /Applications/Xcode_16.0.app
+
+      - name: Swift version
+        run: swift --version
+
+      # Package.resolved を含めてキャッシュ。SPM dependency は SwiftLintPlugins
+      # 等を含むため、初回 fetch が数十秒かかる。
+      - name: Cache SPM
+        uses: actions/cache@v4
+        with:
+          path: .build
+          key: spm-${{ runner.os }}-${{ hashFiles('Package.resolved') }}
+          restore-keys: |
+            spm-${{ runner.os }}-
+
+      # `swift build` の段階で SwiftLintBuildToolPlugin が動くため、ここで
+      # lint 違反 (error 昇格分) も検出される。Linux 側の swiftlint.yml と
+      # 役割が重複するが、macOS 側の SDK でビルドできる方が確実。
+      - name: swift test
+        run: swift test --parallel
