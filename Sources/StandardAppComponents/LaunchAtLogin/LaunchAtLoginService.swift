@@ -12,7 +12,12 @@ import ServiceManagement
 /// Bundle ID は `Bundle.main` (= consumer アプリ自身) から `SMAppService.mainApp`
 /// が読むため、lib 側に渡す引数は無い。テスト等で他 Bundle を使いたい場合は
 /// `SMAppService(plistName:)` を直接使うこと (本 lib のスコープ外)。
-@MainActor
+///
+/// - Important: `SMAppService` 自身が thread-safe なため、本 service には
+///   `@MainActor` 制約を **付けない**。`applicationDidFinishLaunching` の
+///   早期チェック (= MainActor 上だが MainActor isolation を強制したくない)
+///   や、Background `Task` から `isEnabled` を polling したいケースを
+///   阻害しないため。`LaunchAtLoginToggle` 側 (View) は MainActor。
 public enum LaunchAtLoginService {
     /// 現在ログイン項目として登録されているか。
     /// `SMAppService` の `.status` を読む。`.enabled` のみ true。
