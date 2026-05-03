@@ -6,6 +6,10 @@
 #   - 業界標準 / SwiftUI の癖と相性が悪いものは個別に opt-out。
 #   - GitHub Actions (Linux) の SwiftLint 0.63.0 で動く範囲のみ使用。
 #     analyzer_rules はビルド情報が必要 (Linux で動かしにくい) ので不採用。
+#   - `strict: true` で warning も全部 error 扱い (ローカル `swift build` でも CI と同じ厳しさ)。
+
+# warning が 1 件でもあれば lint 失敗。CLI の `--strict` と同じ挙動を config 側で固定する。
+strict: true
 
 disabled_rules: []
 
@@ -157,11 +161,10 @@ reporter: "github-actions-logging"
 
 # === 厳格モードについての注意 ===
 #
-# 「warning も全部 error として扱う」運用は CI 側で `swiftlint --strict`
-# (実際の warning が 1 件でもあれば exit 2) として実現する。
-# `.swiftlint.yml` 側の `warning_threshold: 0` は SwiftLint の仕様で
-# 「常に 1 violation を返す」挙動になり実用不可なので使わない。
+# `strict: true` (ファイル冒頭) を採用しているため、warning が 1 件でも
+# あれば SwiftLint は exit 2 を返す。CLI の `--strict` と同じ挙動を config 側に
+# 固定することで、ローカル `swift build` (SwiftLintBuildToolPlugin) でも CI でも
+# 同じ厳しさで lint が回る。
 #
-# - ローカル `swift build`: SwiftLintBuildToolPlugin が warning として表示。
-#   error 設定したルール (force_*, missing_docs 等) のみ build を落とす。
-# - CI (.github/workflows/swiftlint.yml): `--strict` フラグで warning も error 扱い。
+# `.swiftlint.yml` 側の `warning_threshold: 0` は SwiftLint の仕様で
+# 「常に 1 violation を返す」挙動になり実用不可。代わりに `strict: true` を使う。
