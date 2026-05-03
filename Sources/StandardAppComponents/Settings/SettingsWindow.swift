@@ -12,7 +12,12 @@ public struct SettingsWindow<AppTabs: View>: View {
 
     /// General タブを識別する固定 tag。consumer の `appTabs` 側もすべての追加タブに
     /// `.tag("...")` を当てる必要がある (selection binding が String 一致で動くため)。
-    public static var generalTabId: String { "general" }
+    ///
+    /// - Note: `SettingsWindow` は `AppTabs: View` で generic 化されているため
+    ///   consumer から参照する時 `SettingsWindow<EmptyView>.generalTabId` のように
+    ///   型パラメータ指定が必要になる。簡潔に参照したい場合は
+    ///   `SettingsWindowConstants.generalTabId` を使うこと (値は同じ)。
+    public static var generalTabId: String { SettingsWindowConstants.generalTabId }
 
     /// - Parameters:
     ///   - general: General タブのスロット契約
