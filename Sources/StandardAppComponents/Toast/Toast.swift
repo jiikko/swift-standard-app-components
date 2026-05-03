@@ -3,8 +3,14 @@ import SwiftUI
 // MARK: - Toast Model
 
 /// 1 件のトースト通知データ。`ToastManaging` のキューに入って順に表示される。
+///
+/// `Equatable` は **id のみで比較** する (Identifiable と整合させる目的)。
+/// SwiftUI の `ForEach` / `.animation(value:)` 等で「トーストの入れ替わり」を
+/// アニメーション粒度として扱うために、内容変化ではなく id 変化を「別物」と
+/// する設計。ToastView 内で title / message を読み取って表示するため内容差分
+/// での再描画は別途 SwiftUI が拾う。
 public struct Toast: Identifiable, Equatable {
-    /// 一意 ID。同じ id 同士のみ等価扱い。
+    /// 一意 ID。
     public let id: UUID
     /// success / error / warning / info の見た目バリエーション。
     public let style: Style
@@ -18,7 +24,10 @@ public struct Toast: Identifiable, Equatable {
     public let action: ToastAction?
 
     /// - Parameters:
-    ///   - id: 既存の Toast を上書き表示したい時のみ明示。通常は省略 (`UUID()`)。
+    ///   - id: 通常は省略 (`UUID()`)。consumer 側で安定 id を持って同一トーストとして
+    ///     扱いたい (例: 進捗通知を id 固定でログから追跡する) 場合のみ明示。
+    ///     **同 id を渡しても `ToastManaging.show(_:)` は単に queue に追加するのみで
+    ///     既存表示の置換は行わない**。
     ///   - style: 見た目とアクセシビリティラベルに影響。
     ///   - title: 必須の 1 行目。
     ///   - message: 補足。`nil` ならタイトルのみ表示。

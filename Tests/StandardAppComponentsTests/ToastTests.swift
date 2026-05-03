@@ -25,8 +25,9 @@ final class ToastTests: XCTestCase {
     }
 
     func testEquatableComparesByIDOnly() {
-        // 同じ id を持つ Toast は Equatable で等しいと扱われ、別 id は不等。
-        // id 一致を「同一トースト」と判定する設計 (上書き表示の区別) を担保する。
+        // Equatable は id のみで比較する (Identifiable と整合)。
+        // SwiftUI の ForEach / .animation(value:) が id 変化を「トーストの入れ替わり」
+        // として拾えるようにする設計を担保する。内容差分での再描画は SwiftUI 側が別途拾う。
         let id = UUID()
         let lhs = Toast(id: id, style: .success, title: "A")
         let rhs = Toast(id: id, style: .error, title: "B", message: "different")
