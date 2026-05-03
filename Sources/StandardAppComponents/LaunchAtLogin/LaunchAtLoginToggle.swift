@@ -34,32 +34,56 @@ import SwiftUI
 ///   logger / toast / alert に流す。`onError` が `nil` の場合エラーは黙殺される
 ///   (UI 状態のロールバックのみ行われる)。
 public struct LaunchAtLoginToggle: View {
-    private let label: LocalizedStringKey
+    /// label の解決先 bundle を型で区別する。
+    /// - `.libDefault`: lib 同梱 xcstrings ("Open at Login" / "ログイン時に開く") を使う。
+    ///   `Text(_, bundle: .module)` で lib bundle を明示するため `LocalizedStringKey`
+    ///   経由 (= consumer main bundle 解決) ではなく専用 case を持つ。
+    /// - `.custom`: consumer 側で解決する `LocalizedStringKey` をそのまま `Text` に渡す。
+    private enum LabelSource {
+        case libDefault
+        case custom(LocalizedStringKey)
+    }
+
+    private let labelSource: LabelSource
     private let onError: ((Error) -> Void)?
     @Environment(\.scenePhase) private var scenePhase
     @State private var isOn: Bool = false
 
+    /// lib 同梱の "Open at Login" (ja: "ログイン時に開く") をラベルに使う。
+    ///
+    /// - Parameter onError: `SMAppService.register/unregister` が throw した時に呼ばれる
+    ///   callback。`nil` の場合エラーは無視される (UI は元の値にロールバック)。
+    public init(onError: ((Error) -> Void)? = nil) {
+        self.labelSource = .libDefault
+        self.onError = onError
+    }
+
+    /// アプリ固有の文言をラベルに使う。`label` は **consumer 側 bundle で解決される** ため、
+    /// consumer の `.xcstrings` / `.strings` で対応する key を提供すること。lib 同梱 catalog
+    /// の文言を流用したい場合はラベル無しの init を使う。
+    ///
     /// - Parameters:
-    ///   - label: Toggle の文言。デフォルトは lib 同梱 xcstrings の "Open at Login"
-    ///     (ja: "ログイン時に開く")。アプリ独自の文言を出したい場合のみ override。
+    ///   - label: Toggle のラベル文言 (consumer bundle で解決される)。
     ///   - onError: `SMAppService.register/unregister` が throw した時に呼ばれる callback。
-    ///     `nil` の場合エラーは無視される (UI は元の値にロールバックされる)。
-    ///     consumer がエラーを Toast / alert / log に出したい場合に渡す。
-    public init(
-        label: LocalizedStringKey = LocalizedStringKey("Open at Login"),
-        onError: ((Error) -> Void)? = nil
-    ) {
-        self.label = label
+    public init(label: LocalizedStringKey, onError: ((Error) -> Void)? = nil) {
+        self.labelSource = .custom(label)
         self.onError = onError
     }
 
     public var body: some View {
-        Toggle(label, isOn: bindingToService)
-            .onAppear { syncFromSystem() }
-            .onChange(of: scenePhase) { _, newPhase in
-                // 他のアプリで System Settings 側のログイン項目を編集して戻ってきたケースに追従。
-                if newPhase == .active { syncFromSystem() }
+        Toggle(isOn: bindingToService) {
+            switch labelSource {
+            case .libDefault:
+                Text("Open at Login", bundle: .module)
+            case .custom(let key):
+                Text(key)
             }
+        }
+        .onAppear { syncFromSystem() }
+        .onChange(of: scenePhase) { _, newPhase in
+            // 他のアプリで System Settings 側のログイン項目を編集して戻ってきたケースに追従。
+            if newPhase == .active { syncFromSystem() }
+        }
     }
 
     private var bindingToService: Binding<Bool> {
