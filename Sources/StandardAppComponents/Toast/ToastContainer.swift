@@ -32,7 +32,11 @@ public struct ToastContainerView: View {
     private let manager: any ToastManaging
 
     /// - Parameter manager: 現在トースト・dismiss を駆動するマネージャー。
-    ///   `@Observable` (default `ToastManager`) でも自前 ObservableObject でも可。
+    ///   **Observation framework (`@Observable`) 前提**。`currentToast` の読み取りは
+    ///   body 内で行うため、`@Observable` ならアクセス追跡で更新が伝搬する。
+    ///   従来の `ObservableObject` (`@Published`) はこの container では更新が
+    ///   伝搬しない (`@ObservedObject` を持たないため) 点に注意。consumer が
+    ///   独自実装する場合も `@Observable` を採用すること。
     public init(manager: any ToastManaging) {
         self.manager = manager
     }
