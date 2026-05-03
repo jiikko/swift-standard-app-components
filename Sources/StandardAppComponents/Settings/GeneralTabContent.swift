@@ -14,14 +14,14 @@ struct GeneralTabContent: View {
                 contract.appearance
                     .frame(maxWidth: .infinity, alignment: .leading)
             } header: {
-                Text("Appearance")
+                Text("Appearance", bundle: .module)
             }
 
             Section {
                 contract.language
                     .frame(maxWidth: .infinity, alignment: .leading)
             } header: {
-                Text("Language")
+                Text("Language", bundle: .module)
             }
 
             // appSections は consumer 自身の Section 群を含むため leading frame は当てない

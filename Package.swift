@@ -3,6 +3,7 @@ import PackageDescription
 
 let package = Package(
     name: "StandardAppComponents",
+    defaultLocalization: "en",
     platforms: [
         .macOS(.v14)
     ],
@@ -14,7 +15,10 @@ let package = Package(
     ],
     targets: [
         .target(
-            name: "StandardAppComponents"
+            name: "StandardAppComponents",
+            resources: [
+                .process("Resources")
+            ]
         ),
         .testTarget(
             name: "StandardAppComponentsTests",

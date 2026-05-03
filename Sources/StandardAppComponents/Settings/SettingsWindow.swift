@@ -44,7 +44,13 @@ public struct SettingsWindow<AppTabs: View>: View {
         TabView(selection: $selectedTabId) {
             GeneralTabContent(contract: general)
                 .tag(Self.generalTabId)
-                .tabItem { Label("General", systemImage: "gearshape") }
+                .tabItem {
+                    Label {
+                        Text("General", bundle: .module)
+                    } icon: {
+                        Image(systemName: "gearshape")
+                    }
+                }
                 .keyboardShortcut("1", modifiers: .command)
 
             appTabs()
