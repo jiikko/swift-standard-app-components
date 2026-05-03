@@ -11,7 +11,7 @@ import XCTest
 final class LocalizationMissingKeyTests: XCTestCase {
     func testMissingKeyIsReportedForEachSupportedLocale() throws {
         let bogusKey = "____non_existent_key_for_testing____"
-        let missing = try StandardAppComponentsLocalization._missingKeys(in: [bogusKey])
+        let missing = try StandardAppComponentsLocalization.missingKeys(in: [bogusKey])
 
         XCTAssertFalse(missing.isEmpty, "Expected the bogus key to be reported as missing in at least one locale")
         let missingKeys = Set(missing.map { $0.key })
@@ -28,7 +28,7 @@ final class LocalizationMissingKeyTests: XCTestCase {
     func testKnownKeysAreNotReportedAsMissingWhenMixedWithBogus() throws {
         let bogusKey = "____non_existent_key_for_testing____"
         let mixedKeys = StandardAppComponentsLocalization.requiredKeys + [bogusKey]
-        let missing = try StandardAppComponentsLocalization._missingKeys(in: mixedKeys)
+        let missing = try StandardAppComponentsLocalization.missingKeys(in: mixedKeys)
 
         // 既知キーは missing 扱いされず、bogus のみが拾われる。
         let missingKeys = Set(missing.map { $0.key })
@@ -38,7 +38,7 @@ final class LocalizationMissingKeyTests: XCTestCase {
     func testKnownKeysReturnEmptyWhenAlone() throws {
         // production の validateRequiredKeys が呼ぶ経路と同じ。requiredKeys 全件
         // 揃っていれば空配列が返る (これが happy path)。
-        let missing = try StandardAppComponentsLocalization._missingKeys(in: StandardAppComponentsLocalization.requiredKeys)
+        let missing = try StandardAppComponentsLocalization.missingKeys(in: StandardAppComponentsLocalization.requiredKeys)
         XCTAssertTrue(
             missing.isEmpty,
             "All required keys should be present in every locale; missing = \(missing)"

@@ -1,0 +1,156 @@
+# StandardAppComponents — 厳格な SwiftLint 設定。
+#
+# 方針:
+#   - 共通ライブラリなので「他プロジェクトに不快な癖を残さない」レベルまで厳しく。
+#   - 強制 unwrap / 強制 try / force_cast は禁止。public API は doc を要求。
+#   - 業界標準 / SwiftUI の癖と相性が悪いものは個別に opt-out。
+#   - GitHub Actions (Linux) の SwiftLint 0.63.0 で動く範囲のみ使用。
+#     analyzer_rules はビルド情報が必要 (Linux で動かしにくい) ので不採用。
+
+disabled_rules: []
+
+opt_in_rules:
+  # === コードスメル / バグ防止 ===
+  - array_init
+  - closure_end_indentation
+  - closure_spacing
+  - collection_alignment
+  - contains_over_filter_count
+  - contains_over_filter_is_empty
+  - contains_over_first_not_nil
+  - contains_over_range_nil_comparison
+  - discouraged_object_literal
+  - discouraged_optional_boolean
+  - discouraged_optional_collection
+  - empty_collection_literal
+  - empty_count
+  - empty_string
+  - empty_xctest_method
+  - explicit_init
+  - fatal_error_message
+  - first_where
+  - flatmap_over_map_reduce
+  - force_unwrapping
+  - identical_operands
+  - joined_default_parameter
+  - last_where
+  - legacy_multiple
+  - legacy_random
+  - literal_expression_end_indentation
+  - lower_acl_than_parent
+  - modifier_order
+  - nimble_operator
+  - nslocalizedstring_key
+  - number_separator
+  - operator_usage_whitespace
+  - overridden_super_call
+  - override_in_extension
+  - pattern_matching_keywords
+  - prefer_self_type_over_type_of_self
+  - prefer_zero_over_explicit_init
+  - private_action
+  - private_outlet
+  - private_subject
+  - prohibited_super_call
+  - raw_value_for_camel_cased_codable_enum
+  - reduce_into
+  - redundant_nil_coalescing
+  - redundant_type_annotation
+  - single_test_class
+  - sorted_first_last
+  - static_operator
+  - strict_fileprivate
+  - strong_iboutlet
+  # switch_case_on_newline は Swift 5.9+ の single-expression switch
+  # (`case .x: value`) と相性が悪いため不採用。
+  - toggle_bool
+  - unavailable_function
+  - unneeded_parentheses_in_closure_argument
+  - untyped_error_in_catch
+  - vertical_parameter_alignment_on_call
+  - vertical_whitespace_closing_braces
+  - vertical_whitespace_opening_braces
+  - weak_delegate
+  - xct_specific_matcher
+  - yoda_condition
+
+  # === ライブラリ品質要求 ===
+  # public API には doc コメントを要求 (consumer が xcode jump-to-definition で見る)。
+  - missing_docs
+
+# 警告ではなくエラーに昇格させるルール (回帰必ず防止)。
+# force_unwrapping / force_cast / force_try は致命的なので絶対に通さない。
+analyzer_rules: []
+
+# === ルール個別調整 ===
+
+force_cast: error
+force_try: error
+force_unwrapping:
+  severity: error
+
+# Library なので長すぎるファイル / 関数は分割するのが筋。
+file_length:
+  warning: 400
+  error: 800
+type_body_length:
+  warning: 250
+  error: 500
+function_body_length:
+  warning: 50
+  error: 100
+function_parameter_count:
+  warning: 6
+  error: 10
+cyclomatic_complexity:
+  warning: 10
+  error: 20
+nesting:
+  type_level: 3
+  function_level: 5
+line_length:
+  warning: 140
+  error: 200
+  ignores_comments: true
+  ignores_urls: true
+
+identifier_name:
+  min_length:
+    warning: 2     # `id`, `ok` 等 2 文字も許容 (`x`, `y` などの 1 文字は座標計算で例外的に許容したいなら excluded で個別に)
+    error: 1
+  max_length:
+    warning: 60
+    error: 80
+  excluded:
+    - id
+    - x
+    - y
+
+type_name:
+  min_length:
+    warning: 3
+    error: 2
+  max_length:
+    warning: 60
+    error: 80
+
+# missing_docs: public API のみ要求。internal/private には不要。
+missing_docs:
+  warning:
+    - public
+    - open
+
+# === 対象ファイル ===
+
+included:
+  - Sources
+
+excluded:
+  - .build
+  - Tests        # テストには force_unwrap や missing_docs を要求しない
+  - Examples     # ドキュメント用なので簡潔さ優先
+  - Package.swift
+
+# === 出力 ===
+
+reporter: "github-actions-logging"

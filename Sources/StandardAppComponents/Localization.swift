@@ -40,7 +40,7 @@ public enum StandardAppComponentsLocalization {
     public static func validateRequiredKeys(file: StaticString = #file, line: UInt = #line) {
         let missing: [(locale: String, key: String)]
         do {
-            missing = try _missingKeys(in: requiredKeys)
+            missing = try missingKeys(in: requiredKeys)
         } catch {
             fatalError(
                 "StandardAppComponents: failed to load Localizable.xcstrings: \(error)",
@@ -76,7 +76,7 @@ public enum StandardAppComponentsLocalization {
     /// - Returns: 欠けている `(locale, key)` のリスト。空配列なら全 locale で
     ///   全キーが揃っている。
     /// - Throws: xcstrings JSON が壊れている / 読み込めない場合のみ。
-    static func _missingKeys(in keys: [String]) throws -> [(locale: String, key: String)] {
+    static func missingKeys(in keys: [String]) throws -> [(locale: String, key: String)] {
         if Bundle.module.url(forResource: "Localizable", withExtension: "xcstrings") != nil {
             return try collectMissingFromCatalog(keys: keys)
         } else {

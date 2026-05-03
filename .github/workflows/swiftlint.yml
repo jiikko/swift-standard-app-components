@@ -1,0 +1,22 @@
+name: SwiftLint
+
+on:
+  push:
+    branches: [master]
+    paths:
+      - "Sources/**/*.swift"
+      - ".swiftlint.yml"
+      - ".github/workflows/swiftlint.yml"
+  pull_request:
+    paths:
+      - "Sources/**/*.swift"
+      - ".swiftlint.yml"
+      - ".github/workflows/swiftlint.yml"
+
+jobs:
+  lint:
+    # shared-workflows の swiftlint.yml を呼ぶ。Linux runner (ubuntu-slim) 上で
+    # SwiftLint linux バイナリを落として `.swiftlint.yml` を読む構成。
+    uses: jiikko/shared-workflows/.github/workflows/swiftlint.yml@main
+    with:
+      swiftlint_version: "0.63.0"
