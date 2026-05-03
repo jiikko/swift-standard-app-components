@@ -146,6 +146,62 @@ final class ToastManagerTests: XCTestCase {
         XCTAssertNil(manager.currentToast)
     }
 
+    // MARK: - cancellation 連鎖の回帰ガード (#fix(Toast): cancelled timer tasks chain extra dismisses)
+
+    func testManualDismissAdvancesQueueByExactlyOne() async throws {
+        // 手動 dismiss を 1 回呼んだら、processingDelay 経過後にキューは 1 件だけ進むこと。
+        // CancellationError swallow バグ (cancel された auto-dismiss task が後続を実行) が
+        // あると 2〜3 件先まで進む。
+        let manager = ToastManager()
+        manager.show(Toast(style: .info, title: "current", duration: 10))
+        manager.show(Toast(style: .info, title: "next-1", duration: 10))
+        manager.show(Toast(style: .info, title: "next-2", duration: 10))
+
+        manager.dismiss()
+        try await Task.sleep(for: dismissProcessingWindow)
+
+        XCTAssertEqual(manager.currentToast?.title, "next-1")
+        manager.clearAll()
+    }
+
+    func testClearAllPreventsCancelledQueueTaskFromResuming() async throws {
+        // dismiss → clearAll → wait > processingDelay でキューが復活しないこと。
+        // dismiss が schedule した queueProcessingTask は clearAll で cancel されるが、
+        // CancellationError swallow バグがあると processQueue を呼んでしまい、
+        // clearAll で空にしたはずのキューが復活する。
+        let manager = ToastManager()
+        manager.show(Toast(style: .info, title: "current", duration: 10))
+        manager.show(Toast(style: .info, title: "next", duration: 10))
+
+        manager.dismiss()
+        manager.clearAll()
+        try await Task.sleep(for: dismissProcessingWindow)
+
+        XCTAssertNil(manager.currentToast)
+    }
+
+    func testDismissDoesNotChainExtraDismissFromCancelledAutoTimer() async throws {
+        // 手動 dismiss は auto-dismiss task (10s sleep 中) を cancel する。
+        // cancel された auto-dismiss が CancellationError を握り潰して self.dismiss() を
+        // 余計に呼ぶと、queueProcessingTask が再度 cancel されて連鎖が起きる。
+        // 1 件しかキューに居ない状態で dismiss → wait → currentToast が次の要素 1 件で
+        // 止まり、queue が空になっていること (連鎖していないこと) を担保する。
+        let manager = ToastManager()
+        manager.show(Toast(style: .info, title: "current", duration: 10))
+        manager.show(Toast(style: .info, title: "tail", duration: 10))
+
+        manager.dismiss()
+        try await Task.sleep(for: dismissProcessingWindow)
+
+        XCTAssertEqual(manager.currentToast?.title, "tail")
+
+        // 連鎖していれば tail も既に dismiss 済みで、もう 1 回 sleep するとさらに先に
+        // 進む / nil になる。連鎖していなければ tail のまま (auto-dismiss は 10s 先)。
+        try await Task.sleep(for: dismissProcessingWindow)
+        XCTAssertEqual(manager.currentToast?.title, "tail")
+        manager.clearAll()
+    }
+
     // MARK: - キュー上限
 
     func testQueueDropsOldestWhenExceedingMaxSize() async throws {
