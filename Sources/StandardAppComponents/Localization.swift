@@ -33,18 +33,14 @@ public enum StandardAppComponentsLocalization {
     /// Debug / Release 共通で fatalError するため、production でも漏れを黙って出荷することを防ぐ。
     public static func validateRequiredKeys(file: StaticString = #file, line: UInt = #line) {
         let missing: [(locale: String, key: String)]
-        if Bundle.module.url(forResource: "Localizable", withExtension: "xcstrings") != nil {
-            do {
-                missing = try collectMissingFromCatalog()
-            } catch {
-                fatalError(
-                    "StandardAppComponents: failed to load Localizable.xcstrings: \(error)",
-                    file: file,
-                    line: line
-                )
-            }
-        } else {
-            missing = collectMissingFromCompiledStrings(file: file, line: line)
+        do {
+            missing = try _missingKeys(in: requiredKeys)
+        } catch {
+            fatalError(
+                "StandardAppComponents: failed to load Localizable.xcstrings: \(error)",
+                file: file,
+                line: line
+            )
         }
 
         guard missing.isEmpty else {
@@ -64,9 +60,27 @@ public enum StandardAppComponentsLocalization {
         }
     }
 
+    /// **Test 用**。validateRequiredKeys を fatalError なしに、欠けている `(locale, key)`
+    /// 組を非空配列で返す形に展開した実装。production code は `validateRequiredKeys()`
+    /// を使うこと。
+    ///
+    /// - Parameter keys: チェックしたいキー列。production では `requiredKeys` が渡される。
+    ///   テストでは「本物のキー + 故意に存在しないキー」を混ぜて、missing 検出経路が
+    ///   生きていることを担保する。
+    /// - Returns: 欠けている `(locale, key)` のリスト。空配列なら全 locale で
+    ///   全キーが揃っている。
+    /// - Throws: xcstrings JSON が壊れている / 読み込めない場合のみ。
+    static func _missingKeys(in keys: [String]) throws -> [(locale: String, key: String)] {
+        if Bundle.module.url(forResource: "Localizable", withExtension: "xcstrings") != nil {
+            return try collectMissingFromCatalog(keys: keys)
+        } else {
+            return collectMissingFromCompiledStrings(keys: keys)
+        }
+    }
+
     // MARK: - Mode 1: xcstrings JSON parse (SPM CLI build)
 
-    private static func collectMissingFromCatalog() throws -> [(locale: String, key: String)] {
+    private static func collectMissingFromCatalog(keys: [String]) throws -> [(locale: String, key: String)] {
         guard let url = Bundle.module.url(forResource: "Localizable", withExtension: "xcstrings") else {
             throw LocalizationError.catalogResourceMissing
         }
@@ -75,7 +89,7 @@ public enum StandardAppComponentsLocalization {
         let supportedLocales = catalog.allLocales()
 
         var missing: [(locale: String, key: String)] = []
-        for key in requiredKeys {
+        for key in keys {
             guard let entry = catalog.strings[key] else {
                 supportedLocales.forEach { missing.append(($0, key)) }
                 continue
@@ -93,27 +107,24 @@ public enum StandardAppComponentsLocalization {
 
     // MARK: - Mode 2: compiled .strings lookup (Xcode build)
 
-    private static func collectMissingFromCompiledStrings(file: StaticString, line: UInt) -> [(locale: String, key: String)] {
+    private static func collectMissingFromCompiledStrings(keys: [String]) -> [(locale: String, key: String)] {
         let sentinel = "###StandardAppComponents.MISSING_LOCALIZATION###"
         let locales = Bundle.module.localizations
         guard !locales.isEmpty else {
             // ここが空 = .xcstrings も per-locale .strings も無い、resource processing が
-            // 想定どおり走っていない致命状態。
-            fatalError(
-                "StandardAppComponents: Bundle.module.localizations is empty (no .xcstrings, no compiled .strings). Resource processing may have failed.",
-                file: file,
-                line: line
-            )
+            // 想定どおり走っていない致命状態。production の validateRequiredKeys 経路で
+            // 上位 fatalError を投げるためここでは空 missing を返さず全キーを missing 扱いにする。
+            return keys.map { ("?", $0) }
         }
 
         var missing: [(locale: String, key: String)] = []
         for locale in locales {
             guard let lprojURL = Bundle.module.url(forResource: locale, withExtension: "lproj"),
                   let lprojBundle = Bundle(url: lprojURL) else {
-                requiredKeys.forEach { missing.append((locale, $0)) }
+                keys.forEach { missing.append((locale, $0)) }
                 continue
             }
-            for key in requiredKeys {
+            for key in keys {
                 let value = lprojBundle.localizedString(forKey: key, value: sentinel, table: nil)
                 if value == sentinel {
                     missing.append((locale, key))

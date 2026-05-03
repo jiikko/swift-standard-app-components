@@ -30,7 +30,7 @@ private struct AppAppearanceModifier: ViewModifier {
     func body(content: Content) -> some View {
         content
             .onChange(of: scheme, initial: true) { _, new in
-                let nsAppearance = Self.nsAppearance(for: new)
+                let nsAppearance = AppAppearanceMapping.nsAppearance(for: new)
                 NSApp.appearance = nsAppearance
                 // `.preferredColorScheme(.dark)` で per-window appearance が
                 // 明示セットされた NSWindow は、preferredColorScheme(nil) では
@@ -41,8 +41,13 @@ private struct AppAppearanceModifier: ViewModifier {
                 }
             }
     }
+}
 
-    private static func nsAppearance(for scheme: ColorScheme?) -> NSAppearance? {
+/// `ColorScheme?` ↔ `NSAppearance?` の純粋写像。
+/// View modifier から切り出してあるのは、SwiftUI の render cycle を必要としない
+/// 単体テスト (`AppAppearanceTests`) で写像規則を直接担保できるようにするため。
+enum AppAppearanceMapping {
+    static func nsAppearance(for scheme: ColorScheme?) -> NSAppearance? {
         switch scheme {
         case .light: NSAppearance(named: .aqua)
         case .dark:  NSAppearance(named: .darkAqua)
