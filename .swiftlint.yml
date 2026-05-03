@@ -159,12 +159,6 @@ excluded:
 
 reporter: "github-actions-logging"
 
-# === 厳格モードについての注意 ===
-#
-# `strict: true` (ファイル冒頭) を採用しているため、warning が 1 件でも
-# あれば SwiftLint は exit 2 を返す。CLI の `--strict` と同じ挙動を config 側に
-# 固定することで、ローカル `swift build` (SwiftLintBuildToolPlugin) でも CI でも
-# 同じ厳しさで lint が回る。
-#
-# `.swiftlint.yml` 側の `warning_threshold: 0` は SwiftLint の仕様で
-# 「常に 1 violation を返す」挙動になり実用不可。代わりに `strict: true` を使う。
+# 過去の試行メモ: `warning_threshold: 0` は SwiftLint の仕様で実 warning 0 件
+# でも threshold violation が 1 件カウントされ常に fail する。代わりに `strict: true`
+# (冒頭) を採用済み。
