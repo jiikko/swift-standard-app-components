@@ -32,6 +32,44 @@ final class LanguageSectionTests: XCTestCase {
         _ = section.body
     }
 
+    // MARK: - PrimaryAlertButton (R1 fix の契約を直接ロック)
+
+    /// `onRestart = nil` で initialize した場合、alert primary ボタンが `.quit` 経路を
+    /// 選ぶこと。これが `.restart` に戻ると Quit Now ボタンが Restart Now と表示されて
+    /// 終了するだけ、というユーザー混乱が再発する (Codex R1 #2 / R2 #3)。
+    func testPrimaryAlertButtonIsQuitWhenOnRestartIsNil() {
+        let button = LanguageSection.primaryAlertButton(onRestart: nil)
+        switch button {
+        case .quit:
+            break // OK
+        case .restart:
+            XCTFail("Expected .quit when onRestart is nil")
+        }
+        XCTAssertEqual(button.titleKey, "Quit Now")
+    }
+
+    /// `onRestart` を渡して initialize した場合、alert primary ボタンが `.restart` 経路を
+    /// 選び、associated closure が consumer 由来であることを担保する。
+    func testPrimaryAlertButtonIsRestartWithCustomActionWhenOnRestartIsProvided() {
+        let invoked = expectation(description: "consumer onRestart invoked via .restart case")
+        let button = LanguageSection.primaryAlertButton(onRestart: { invoked.fulfill() })
+        switch button {
+        case .quit:
+            XCTFail("Expected .restart when onRestart is provided")
+        case .restart(let action):
+            action()
+        }
+        wait(for: [invoked], timeout: 0.1)
+        XCTAssertEqual(button.titleKey, "Restart Now")
+    }
+
+    /// `titleKey` は xcstrings の wire-format。値が変わると catalog 検証 / SwiftUI
+    /// `Text(_, bundle: .module)` のキー解決が無言で壊れるため、test で固定する。
+    func testPrimaryAlertButtonTitleKeysAreStable() {
+        XCTAssertEqual(LanguageSection.PrimaryAlertButton.quit.titleKey, "Quit Now")
+        XCTAssertEqual(LanguageSection.PrimaryAlertButton.restart({}).titleKey, "Restart Now")
+    }
+
     // MARK: - LanguageOption value semantics
 
     func testLanguageOptionEquatable() {

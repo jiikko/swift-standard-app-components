@@ -100,18 +100,20 @@ public struct LanguageSection: View {
 
             // onRestart が渡された場合は「再起動」を約束できるので Restart Now、
             // 渡されていない場合は terminate するだけなので Quit Now と表記して
-            // ボタン文言と挙動を一致させる。
-            if let onRestart {
-                Button {
-                    onRestart()
-                } label: {
-                    Text("Restart Now", bundle: .module)
-                }
-            } else {
+            // ボタン文言と挙動を一致させる。kind 選択は presentation model
+            // (PrimaryAlertButton) に切り出してテスト可能にしている。
+            switch Self.primaryAlertButton(onRestart: onRestart) {
+            case .quit:
                 Button {
                     NSApp.terminate(nil)
                 } label: {
                     Text("Quit Now", bundle: .module)
+                }
+            case .restart(let action):
+                Button {
+                    action()
+                } label: {
+                    Text("Restart Now", bundle: .module)
                 }
             }
         } message: {
@@ -138,6 +140,40 @@ public struct LanguageSection: View {
         } else {
             UserDefaults.standard.removeObject(forKey: "AppleLanguages")
         }
+    }
+
+    // MARK: - Presentation model (testable)
+
+    /// 言語変更後の alert で出す primary ボタンの種類。`onRestart` の有無で
+    /// quit (= terminate のみ) と restart (= consumer の relaunch closure 実行) を
+    /// 切り替える関係性を View builder の外に切り出して、テストから直接検証できる
+    /// ようにしてある (Codex review R2 #3)。
+    internal enum PrimaryAlertButton {
+        /// `onRestart == nil` 経路。alert は "Quit Now" と表示、押下で
+        /// `NSApp.terminate(nil)` を呼ぶ (= 終了するだけ、再起動はしない)。
+        case quit
+        /// `onRestart` 渡し経路。alert は "Restart Now" と表示、押下で
+        /// associated closure を呼ぶ。
+        case restart(() -> Void)
+
+        /// lib bundle (`Bundle.module`) で解決すべき localized title の key。
+        /// xcstrings entry "Quit Now" / "Restart Now" と 1:1 で対応。
+        var titleKey: String {
+            switch self {
+            case .quit: "Quit Now"
+            case .restart: "Restart Now"
+            }
+        }
+    }
+
+    /// `onRestart` の有無から alert primary ボタンの kind を選ぶ factory。
+    /// View body は本関数の結果を switch するだけにして、選択ロジックを
+    /// presentation model 側に集約する。
+    internal static func primaryAlertButton(onRestart: (() -> Void)?) -> PrimaryAlertButton {
+        if let onRestart {
+            return .restart(onRestart)
+        }
+        return .quit
     }
 }
 
