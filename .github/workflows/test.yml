@@ -34,12 +34,18 @@ jobs:
       - uses: actions/checkout@v4
 
       # Xcode の SDK / Swift toolchain を選ぶ。GitHub-hosted runner には複数
-      # 版が同居しているので明示的に固定する。
-      - name: Select Xcode
-        run: sudo xcode-select -s /Applications/Xcode_16.0.app
+      # 版が同居しているので明示的に最新 stable を選ぶ。`maxim-lobanov/setup-xcode`
+      # は xcode-select を ラップした action で、runner にプリインストール
+      # された中で latest-stable を解決してくれる。
+      - name: Select latest stable Xcode
+        uses: maxim-lobanov/setup-xcode@v1
+        with:
+          xcode-version: latest-stable
 
-      - name: Swift version
-        run: swift --version
+      - name: Xcode / Swift version
+        run: |
+          xcodebuild -version
+          swift --version
 
       # Package.resolved を含めてキャッシュ。SPM dependency は SwiftLintPlugins
       # 等を含むため、初回 fetch が数十秒かかる。
