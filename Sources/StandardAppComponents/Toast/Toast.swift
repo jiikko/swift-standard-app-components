@@ -105,17 +105,21 @@ extension Toast {
 
 /// アクションボタン付き Toast に渡す callback。タップで `handler` が走り、
 /// その後 Toast は自動的に dismiss される。
-public struct ToastAction {
+///
+/// `handler` は SwiftUI の `Button` action から呼ばれるため `@MainActor`
+/// に固定する。consumer 側の `ViewModel.someAction()` を直接呼び出せて、
+/// background work が必要なら handler の中で `Task { ... }` に逃がす契約。
+public struct ToastAction: Sendable {
     /// ボタンに表示する文字列 (例: 「Finder で開く」)。
     public let title: String
-    /// タップ時に呼ばれる callback。`@Sendable` で actor 越境を許す。
-    public let handler: @Sendable () -> Void
+    /// タップ時に呼ばれる callback。`@MainActor` 固定で UI コールバックとして扱う。
+    public let handler: @MainActor @Sendable () -> Void
 
     /// - Parameters:
     ///   - title: ボタンに表示する文字列。
-    ///   - handler: タップ時に呼ぶ callback。`@Sendable` で MainActor 越境を許す。
-    @preconcurrency
-    public init(title: String, handler: @Sendable @escaping () -> Void) {
+    ///   - handler: タップ時に呼ぶ callback。`@MainActor` で `Button` action と同じ
+    ///     isolation。background work は handler 内で `Task { ... }` に逃がす。
+    public init(title: String, handler: @MainActor @Sendable @escaping () -> Void) {
         self.title = title
         self.handler = handler
     }

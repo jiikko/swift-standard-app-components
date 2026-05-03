@@ -2,6 +2,7 @@ import XCTest
 import SwiftUI
 @testable import StandardAppComponents
 
+@MainActor
 final class ToastTests: XCTestCase {
     // MARK: - Toast model
 
