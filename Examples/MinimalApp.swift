@@ -19,7 +19,18 @@ struct MinimalApp: App {
             SettingsWindow(
                 general: GeneralTabContract(
                     appearance: { AppearanceSection() },
-                    language:   { LanguageSection() }
+                    language: {
+                        // LanguageSection は lib 提供。consumer は対応言語のリストを
+                        // 渡すだけで System Default + Restart Now / Later フローを得る。
+                        LanguageSection(
+                            supportedLanguages: [
+                                .init(code: "en", displayName: "English"),
+                                .init(code: "ja", displayName: "日本語")
+                            ]
+                            // onRestart はデフォルト `NSApp.terminate(nil)`。relaunch
+                            // したい場合のみ closure を渡す。
+                        )
+                    }
                     // appSections は省略可（任意）
                 )
             )
@@ -34,7 +45,7 @@ private struct ContentView: View {
     }
 }
 
-// 各アプリが実装する外観セクション
+// 各アプリが実装する外観セクション (lib 側には用意していないので consumer が実装する)
 private struct AppearanceSection: View {
     @State private var mode: Int = 0
     var body: some View {
@@ -44,17 +55,6 @@ private struct AppearanceSection: View {
             Text("Dark").tag(2)
         }
         .pickerStyle(.segmented)
-    }
-}
-
-// 各アプリが実装する言語セクション
-private struct LanguageSection: View {
-    @State private var language: String = "ja"
-    var body: some View {
-        Picker("Language", selection: $language) {
-            Text("日本語").tag("ja")
-            Text("English").tag("en")
-        }
     }
 }
 
