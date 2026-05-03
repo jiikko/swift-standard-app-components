@@ -59,9 +59,12 @@ public struct SettingsWindow<AppTabs: View>: View {
         // .frame(height:) にしているのは、TabView の "ideal" が全タブ max にキャッシュ
         // されてしまい、短いタブに切り替えても縮まない挙動を回避するため。
         // width は nil なら .frame 側で no-op (制約しない) になる。
+        // animation は overshoot しない easeInOut。spring(damping<1.0) だと身長が
+        // 縮むタブに切り替えた瞬間に下端が目標より小さい高さまで突き抜けてから戻り、
+        // 上端の content が「上にバウンス」して見えるため。
         .frame(width: width, height: currentHeight)
         .onChange(of: selectedTabId) { _, newId in
-            withAnimation(.spring(response: 0.35, dampingFraction: 0.85)) {
+            withAnimation(.easeInOut(duration: 0.25)) {
                 currentHeight = height(for: newId)
             }
         }
