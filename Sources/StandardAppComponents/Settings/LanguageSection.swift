@@ -59,6 +59,10 @@ public struct LanguageSection: View {
             EmptyView()
         }
         .labelsHidden()
+        // section header (lib 提供の "言語") があるので picker 自身に label を付けないが、
+        // macOS Form の慣例である「label 左 / field 右」のうち field を行末に揃えるため
+        // alignment: .trailing で row 全幅に広げて picker を右端へ寄せる。
+        .frame(maxWidth: .infinity, alignment: .trailing)
         .onAppear {
             if isInitialLoad {
                 selectedLanguage = loadCurrentLanguage()
