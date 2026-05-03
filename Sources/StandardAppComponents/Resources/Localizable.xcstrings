@@ -1,96 +1,186 @@
 {
-  "sourceLanguage" : "en",
-  "strings" : {
-    "Appearance" : {
-      "comment" : "Settings - Appearance section header",
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Appearance"
+  "sourceLanguage": "en",
+  "strings": {
+    "Appearance": {
+      "comment": "Settings - Appearance section header",
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Appearance"
           }
         },
-        "ja" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "外観"
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "外観"
           }
         }
       }
     },
-    "General" : {
-      "comment" : "Settings tab - General tab name",
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "General"
+    "General": {
+      "comment": "Settings tab - General tab name",
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "General"
           }
         },
-        "ja" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "全般"
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "全般"
           }
         }
       }
     },
-    "Language" : {
-      "comment" : "Settings - Language section header",
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Language"
+    "Language": {
+      "comment": "Settings - Language section header",
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Language"
           }
         },
-        "ja" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "言語"
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "言語"
           }
         }
       }
     },
-    "Open at Login" : {
-      "comment" : "LaunchAtLoginToggle - default Toggle label",
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Open at Login"
+    "Open at Login": {
+      "comment": "LaunchAtLoginToggle - default Toggle label",
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Open at Login"
           }
         },
-        "ja" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "ログイン時に開く"
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ログイン時に開く"
           }
         }
       }
     },
-    "Show in Menu Bar" : {
-      "comment" : "MenuBarVisibilityToggle - default Toggle label",
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Show in Menu Bar"
+    "Show in Menu Bar": {
+      "comment": "MenuBarVisibilityToggle - default Toggle label",
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Show in Menu Bar"
           }
         },
-        "ja" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "メニューバーに表示"
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "メニューバーに表示"
+          }
+        }
+      }
+    },
+    "System Default": {
+      "comment": "LanguageSection - language picker / restart alert",
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "System Default"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "システムのデフォルト"
+          }
+        }
+      }
+    },
+    "Language Changed": {
+      "comment": "LanguageSection - language picker / restart alert",
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Language Changed"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "言語を変更しました"
+          }
+        }
+      }
+    },
+    "Restart the app to apply the new language.": {
+      "comment": "LanguageSection - language picker / restart alert",
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Restart the app to apply the new language."
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "変更を反映するにはアプリを再起動してください。"
+          }
+        }
+      }
+    },
+    "Restart Now": {
+      "comment": "LanguageSection - language picker / restart alert",
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Restart Now"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "いますぐ再起動"
+          }
+        }
+      }
+    },
+    "Later": {
+      "comment": "LanguageSection - language picker / restart alert",
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Later"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "後で"
           }
         }
       }
     }
   },
-  "version" : "1.0"
+  "version": "1.0"
 }
