@@ -33,14 +33,15 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      # Xcode の SDK / Swift toolchain を選ぶ。GitHub-hosted runner には複数
-      # 版が同居しているので明示的に最新 stable を選ぶ。`maxim-lobanov/setup-xcode`
-      # は xcode-select を ラップした action で、runner にプリインストール
-      # された中で latest-stable を解決してくれる。
-      - name: Select latest stable Xcode
+      # Xcode の SDK / Swift toolchain を固定する。`maxim-lobanov/setup-xcode`
+      # は xcode-select をラップした action で、runner にプリインストール
+      # された中で指定したバージョンを解決する。
+      # 26.4 固定の理由: ローカル開発が 26.4.1 で動作確認済みなので、
+      # 同系列で揃える。`26.4` 表記は patch 違い (26.4.x) を許容する。
+      - name: Select Xcode 26.4
         uses: maxim-lobanov/setup-xcode@v1
         with:
-          xcode-version: latest-stable
+          xcode-version: '26.4'
 
       - name: Xcode / Swift version
         run: |
