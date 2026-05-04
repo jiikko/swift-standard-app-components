@@ -72,6 +72,28 @@ final class ToastTests: XCTestCase {
         }
     }
 
+    // MARK: - accessibility label (model に切り出した pure 計算)
+
+    func testAccessibilityLabelTitleOnlyWhenMessageIsNil() {
+        // message が nil なら title のみ。連結区切りの ". " が誤って付かないこと。
+        let toast = Toast(style: .info, title: "Saved")
+        XCTAssertEqual(toast.accessibilityLabel, "Saved")
+    }
+
+    func testAccessibilityLabelJoinsTitleAndMessageWithPeriodSpace() {
+        // message があれば title と ". " 区切りで連結する。VoiceOver が
+        // 1 つのコンテンツとして自然に読み上げる粒度を担保する。
+        let toast = Toast(style: .error, title: "Failed", message: "Path does not exist")
+        XCTAssertEqual(toast.accessibilityLabel, "Failed. Path does not exist")
+    }
+
+    func testAccessibilityLabelHandlesEmptyMessage() {
+        // message が空文字でも nil として扱わず連結する (consumer の意図を尊重)。
+        // 空 message は実用上ほぼ無いが、契約として「.message 非 nil なら連結」を固定する。
+        let toast = Toast(style: .info, title: "Title", message: "")
+        XCTAssertEqual(toast.accessibilityLabel, "Title. ")
+    }
+
     // MARK: - ToastAction
 
     func testActionHandlerIsInvokable() {

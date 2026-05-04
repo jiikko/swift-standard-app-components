@@ -52,6 +52,15 @@ public struct Toast: Identifiable, Equatable {
     public static func == (lhs: Toast, rhs: Toast) -> Bool {
         lhs.id == rhs.id
     }
+
+    /// VoiceOver 等のアクセシビリティで読み上げる文字列。`title` を必須、`message` が
+    /// あれば `". "` 区切りで連結する。`ToastView` の accessibility label として使う。
+    /// View 側の private に閉じず model に持たせることで、文字列組み立ての契約を
+    /// 単体テストできる (Codex review R2 ぼやきフォロー)。
+    public var accessibilityLabel: String {
+        guard let message else { return title }
+        return "\(title). \(message)"
+    }
 }
 
 // MARK: - Toast Style

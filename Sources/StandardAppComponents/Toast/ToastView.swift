@@ -99,15 +99,7 @@ public struct ToastView: View {
                 .shadow(color: .black.opacity(Layout.shadowOpacity), radius: Layout.shadowRadius, x: 0, y: Layout.shadowY)
         )
         .accessibilityElement(children: .combine)
-        .accessibilityLabel(accessibilityLabel)
+        .accessibilityLabel(toast.accessibilityLabel)
         .accessibilityAddTraits(toast.action == nil ? .isStaticText : [])
-    }
-
-    private var accessibilityLabel: String {
-        var label = toast.title
-        if let message = toast.message {
-            label += ". \(message)"
-        }
-        return label
     }
 }
