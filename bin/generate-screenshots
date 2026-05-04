@@ -1,0 +1,10 @@
+#!/usr/bin/env bash
+# README に載せるスクショを再生成する。
+# `Tools/ScreenshotGenerator/main.swift` の内容を `docs/images/*.png` に書き出す。
+#
+# 実体は `swift run ScreenshotGenerator`。CI / 開発者が同じコマンドで再現できる
+# よう wrapper を用意している。
+set -euo pipefail
+
+cd "$(dirname "$0")/.."
+exec swift run ScreenshotGenerator "$@"

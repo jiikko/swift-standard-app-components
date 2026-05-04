@@ -153,6 +153,7 @@ excluded:
   - .build
   - Tests        # テストには force_unwrap や missing_docs を要求しない
   - Examples     # ドキュメント用なので簡潔さ優先
+  - Tools        # 開発者ユーティリティ (ScreenshotGenerator 等) — lib API ではない
   - Package.swift
 
 # === 出力 ===

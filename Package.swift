@@ -29,6 +29,14 @@ let package = Package(
                 .plugin(name: "SwiftLintBuildToolPlugin", package: "SwiftLintPlugins")
             ]
         ),
+        // README に載せるスクショを `ImageRenderer` で生成する開発者向けユーティリティ。
+        // `swift run ScreenshotGenerator` で `docs/images/*.png` を再生成する。
+        // products に含めないため SPM consumer (各 macOS アプリ) からは見えない。
+        .executableTarget(
+            name: "ScreenshotGenerator",
+            dependencies: ["StandardAppComponents"],
+            path: "Tools/ScreenshotGenerator"
+        ),
         .testTarget(
             name: "StandardAppComponentsTests",
             dependencies: ["StandardAppComponents"]
