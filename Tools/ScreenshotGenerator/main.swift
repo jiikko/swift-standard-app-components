@@ -97,7 +97,7 @@ enum ScreenshotGenerator {
                 LaunchAtLoginToggle()
                 MenuBarVisibilityToggle(isOn: .constant(true))
             } header: {
-                Text("Startup & Menu Bar")
+                Text("その他")
             }
         }
         .formStyle(.grouped)
