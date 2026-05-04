@@ -30,8 +30,60 @@ public enum StandardAppComponentsLocalization {
         "Restart the app to apply the new language.",
         "Restart Now",
         "Quit Now",
-        "Later"
+        "Later",
+        // Generic section header (lib screenshot demos / consumer 側 misc section にも使える)
+        "Other"
     ]
+
+    /// Lib のリソース bundle (`Bundle.module`) を public に露出する。
+    ///
+    /// `Bundle.module` は Swift Package Manager が target ごとに auto-generate するため、
+    /// 他 target (例: `ScreenshotGenerator` executable, consumer アプリの一部) からは見えない。
+    /// lib 同梱の xcstrings に直接アクセスしたい場合はこのプロパティ経由で bundle を取得する。
+    ///
+    /// **通常の consumer は使う必要がない**。lib 内の `Text("...", bundle: .module)` 経由で
+    /// 自動的に lib bundle が解決されるため、consumer アプリからは何もしなくても日英切替
+    /// (システム言語 or `LanguageSection` 経由の `AppleLanguages` 切替) が機能する。
+    public static var bundle: Bundle { .module }
+
+    /// 指定 `key` を `locale` (例: `"ja"` / `"en"`) で lib catalog から **明示的に** lookup する。
+    ///
+    /// 通常の consumer は `Text("...", bundle: .module)` でシステム言語に従って lib catalog
+    /// を引けるため、本 API は不要。次のような **dev tool** ユースケースのみで使う:
+    ///
+    /// - SPM CLI build (`swift run ...`) では xcstrings が compiled `.strings` に変換されない
+    ///   ため、`String(localized: LocalizedStringResource(..., locale: ...))` が指定 locale を
+    ///   尊重せず source language にフォールバックする。本 API は xcstrings JSON を直接 parse
+    ///   して locale-specific 値を取り出す。
+    /// - Xcode build では compiled `.strings` から `Bundle.localizedString(forKey:value:table:)`
+    ///   経由で取り出す。両 build mode で同じ結果。
+    ///
+    /// - Parameters:
+    ///   - key: catalog の key (例: `"Open at Login"`)。`requiredKeys` に含まれること推奨。
+    ///   - locale: BCP-47 タグ (例: `"ja"`, `"en"`)。
+    /// - Returns: 該当 locale の翻訳値。entry が無い / 未翻訳 / I/O 失敗時は `nil`。
+    public static func lookupString(forKey key: String, locale: String) -> String? {
+        // Mode 1: Xcode build → compiled .strings (lproj)
+        if let lprojURL = Bundle.module.url(forResource: locale, withExtension: "lproj"),
+           let lprojBundle = Bundle(url: lprojURL) {
+            let sentinel = "__StandardAppComponents.MISSING__"
+            let value = lprojBundle.localizedString(forKey: key, value: sentinel, table: nil)
+            if value != sentinel {
+                return value
+            }
+        }
+
+        // Mode 2: SPM CLI build → xcstrings JSON 直接 parse
+        guard let url = Bundle.module.url(forResource: "Localizable", withExtension: "xcstrings"),
+              let data = try? Data(contentsOf: url),
+              let catalog = try? JSONDecoder().decode(StringCatalog.self, from: data),
+              let entry = catalog.strings[key],
+              let unit = entry.localizations[locale]?.stringUnit,
+              unit.state == "translated", !unit.value.isEmpty else {
+            return nil
+        }
+        return unit.value
+    }
 
     /// 必須キーが全 supported locale で翻訳済みエントリを持っているか検証する。
     /// **1 つでも欠けていれば `fatalError` で停止する**。

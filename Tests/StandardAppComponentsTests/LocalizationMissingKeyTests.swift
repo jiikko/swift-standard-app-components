@@ -44,4 +44,39 @@ final class LocalizationMissingKeyTests: XCTestCase {
             "All required keys should be present in every locale; missing = \(missing)"
         )
     }
+
+    // MARK: - lookupString (dev tool 用 explicit locale resolver)
+
+    func testLookupStringReturnsJapaneseValueForKnownKey() {
+        // 既存 catalog エントリを ja で引く (en と異なる文言で resolution が機能していることを担保)。
+        XCTAssertEqual(
+            StandardAppComponentsLocalization.lookupString(forKey: "Open at Login", locale: "ja"),
+            "ログイン時に開く"
+        )
+        XCTAssertEqual(
+            StandardAppComponentsLocalization.lookupString(forKey: "Other", locale: "ja"),
+            "その他"
+        )
+    }
+
+    func testLookupStringReturnsEnglishValueForKnownKey() {
+        XCTAssertEqual(
+            StandardAppComponentsLocalization.lookupString(forKey: "Open at Login", locale: "en"),
+            "Open at Login"
+        )
+    }
+
+    func testLookupStringReturnsNilForUnknownKey() {
+        // 未登録 key → nil。consumer 側 fallback ロジックが nil を観測できることを担保。
+        XCTAssertNil(
+            StandardAppComponentsLocalization.lookupString(forKey: "____non_existent_key____", locale: "ja")
+        )
+    }
+
+    func testLookupStringReturnsNilForUnsupportedLocale() {
+        // catalog に存在しない locale → nil。
+        XCTAssertNil(
+            StandardAppComponentsLocalization.lookupString(forKey: "Open at Login", locale: "fr")
+        )
+    }
 }

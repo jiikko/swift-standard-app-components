@@ -198,6 +198,24 @@
           }
         }
       }
+    },
+    "Other": {
+      "comment": "Generic section header for miscellaneous Settings (used in lib screenshot demos; consumers may also use it for misc appSections)",
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Other"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "その他"
+          }
+        }
+      }
     }
   },
   "version": "1.0"
