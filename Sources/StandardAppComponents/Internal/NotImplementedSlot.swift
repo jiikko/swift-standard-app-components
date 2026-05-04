@@ -11,7 +11,9 @@ public struct NotImplementedSlot: View {
         VStack(spacing: 8) {
             Image(systemName: "exclamationmark.triangle.fill")
                 .font(.title2)
-            Text("Not Implemented: \(name)")
+            // 開発時の slot 未実装フォールバック。本番ユーザーには出ない (assertionFailure
+            // で DEBUG ビルドは止まる) ため、catalog 経由ではなく `verbatim:` で出す。
+            Text(verbatim: "Not Implemented: \(name)")
                 .font(.callout)
                 .multilineTextAlignment(.center)
         }

@@ -30,10 +30,12 @@ import SwiftUI
 ///     get: { mode },
 ///     set: { raw = $0.rawValue }
 /// )) {
-///     Text("システム").tag(StandardAppearanceMode.system)
-///     Text("ライト").tag(StandardAppearanceMode.light)
-///     Text("ダーク").tag(StandardAppearanceMode.dark)
+///     Text(verbatim: "システム").tag(StandardAppearanceMode.system)
+///     Text(verbatim: "ライト").tag(StandardAppearanceMode.light)
+///     Text(verbatim: "ダーク").tag(StandardAppearanceMode.dark)
 /// }
+/// // 実プロダクションでは consumer 側で `Text("System", bundle: .main)` 等で
+/// // localization する。doc 例は短さ優先で `verbatim:` にしてある。
 ///
 /// // Scene root で外観を当てる
 /// .applyAppAppearance(mode.preferredColorScheme)

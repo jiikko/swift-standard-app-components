@@ -19,7 +19,7 @@ struct GeneralTabContent: View {
             //
             // 例外: lib 提供の `LanguageSection` は section header と row label が同一概念
             // (= "Language") のため、視覚的に label 2 重表示を避けて `.labelsHidden()` を
-            // 使う。VoiceOver には Picker label の `Text("Language")` が伝わる。
+            // 使う。VoiceOver には Picker label `Text("Language", bundle: .module)` が伝わる。
             Section {
                 contract.appearance
             } header: {

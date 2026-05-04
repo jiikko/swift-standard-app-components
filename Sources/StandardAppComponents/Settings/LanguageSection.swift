@@ -71,7 +71,7 @@ public struct LanguageSection: View {
         // GeneralTabContent.swift の anti-pattern ガイダンス (`.labelsHidden()` は避ける)
         // に対する **意図的な例外**: LanguageSection は section header (= "Language") が
         // 既に row の意味を表しているため、視覚的に label を 2 重に出さないように
-        // `.labelsHidden()` で隠す。VoiceOver には上の Text("Language") が伝わる。
+        // `.labelsHidden()` で隠す。VoiceOver には Picker label の Text(_, bundle: .module) が伝わる。
         // macOS Form の慣例「label 左 / field 右」のうち field を行末に揃えるため、
         // alignment: .trailing で row 全幅に広げて picker を右端へ寄せる。
         .frame(maxWidth: .infinity, alignment: .trailing)

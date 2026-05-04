@@ -144,6 +144,35 @@ missing_docs:
     - public
     - open
 
+# === Custom rules ===
+
+custom_rules:
+  # SwiftUI `Text` literal で catalog バイパスを禁止する。
+  #
+  # lib code は consumer アプリの SPM に展開されて実行されるため、`Text("X")` は
+  # **consumer 側 main bundle** で localization が解決される (= lib 同梱 xcstrings に
+  # 訳語があっても引かれない)。`bundle: .module` を明示して lib catalog 経由にする。
+  # 非ローカライズ literal (debug message / SF Symbol 名など) は `Text(verbatim: ...)`
+  # を使う。
+  #
+  # ハードコード排除の動機: 過去 `LaunchAtLoginToggle` / `MenuBarVisibilityToggle` の
+  # default label が `LocalizedStringKey("Open at Login")` だけで `bundle:` 指定なし
+  # だったため、lib 同梱の ja 翻訳が consumer 側で効かない不具合があった (Codex review #3)。
+  # 同種の bypass を機械検出する。
+  #
+  # match_kinds: doccomment / comment 内に `Text("X")` 形のサンプルを書いた時に
+  # false positive を起こさないよう、identifier kind 限定で match させる。
+  text_literal_must_use_bundle:
+    name: "Text literal must use bundle"
+    regex: '\bText\("[^"]*"\)'
+    # 注: doc comment 内の `Text("X")` 形のサンプルも match してしまうため、
+    # ソース側の doc comment は `Text("X", bundle: .module)` を例として書くか、
+    # 別形 (`/* ... */` の中で Text のフルシグネチャを書かない 等) で記述する。
+    # SwiftLint の `match_kinds` で comment kind を除外しようとしたが期待通り動かず、
+    # ソース側で pattern を避ける運用に倒した。
+    message: "lib 内の Text にハードコード文字列を渡さない。`Text(\"X\", bundle: .module)` で lib catalog 経由にする (consumer 側 main bundle 解決のミスを防ぐ)。非ローカライズ literal は `Text(verbatim: \"X\")`。"
+    severity: error
+
 # === 対象ファイル ===
 
 included:

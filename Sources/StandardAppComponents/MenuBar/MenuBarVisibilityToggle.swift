@@ -18,7 +18,7 @@ import SwiftUI
 ///         language:   { ... },
 ///         appSections: {
 ///             Section { MenuBarVisibilityToggle(isOn: $showInMenuBar) }
-///                 header: { Text("Menu Bar") }
+///                 header: { Text("Menu Bar", bundle: .main) }   // consumer 自身のラベル
 ///         }
 ///     )
 /// )

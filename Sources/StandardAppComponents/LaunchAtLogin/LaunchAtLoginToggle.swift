@@ -16,7 +16,7 @@ import SwiftUI
 ///                     toastManager.show("起動時起動の切替に失敗: \(error.localizedDescription)")
 ///                 })
 ///             } header: {
-///                 Text("Startup")
+///                 Text("Startup", bundle: .main)   // consumer 自身のラベル
 ///             }
 ///         }
 ///     )
