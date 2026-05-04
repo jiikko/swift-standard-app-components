@@ -129,7 +129,8 @@ public struct LanguageSection: View {
               let appDomain = UserDefaults.standard.persistentDomain(forName: bundleId) else {
             return nil
         }
-        let languages = appDomain["AppleLanguages"] as? [String]
+        // AppleLanguages 未設定 / 型不一致 → 空配列として扱う (= System Default 経路)。
+        let languages = (appDomain["AppleLanguages"] as? [String]) ?? []
         return Self.resolveSelectedLanguage(
             appleLanguages: languages,
             supportedCodes: supportedLanguages.map(\.code)
@@ -149,22 +150,24 @@ public struct LanguageSection: View {
     ///
     /// 「明示選択中」と扱う条件: `appleLanguages` が **単一要素** で、その要素が
     /// `supportedCodes` に含まれていること。
-    /// それ以外 (`nil` / 空配列 / 複数要素 / 単一だが supported 外) はすべて System Default
-    /// として `nil` を返す。
+    /// それ以外 (空配列 / 複数要素 / 単一だが supported 外) はすべて System Default として
+    /// `nil` を返す。`UserDefaults` 側で `AppleLanguages` が未設定 / 型不一致のケースは
+    /// 呼び出し側で空配列にしてから渡す前提 (`[String]?` を避けて
+    /// `discouraged_optional_collection` lint に従う)。
     ///
     /// - Parameters:
-    ///   - appleLanguages: `UserDefaults` から取り出した `AppleLanguages` 値。型変換に
-    ///     失敗していれば `nil` を渡す。
+    ///   - appleLanguages: `UserDefaults` から取り出した `AppleLanguages` 値。未設定 /
+    ///     型不一致なら空配列を渡す。
     ///   - supportedCodes: consumer が指定した supportedLanguages の code 一覧。
     /// - Returns: 明示選択中の言語コード、または System Default なら `nil`。
     internal static func resolveSelectedLanguage(
-        appleLanguages: [String]?,
+        appleLanguages: [String],
         supportedCodes: [String]
     ) -> String? {
-        guard let languages = appleLanguages, languages.count == 1 else {
+        guard appleLanguages.count == 1 else {
             return nil
         }
-        let lang = languages[0]
+        let lang = appleLanguages[0]
         return supportedCodes.contains(lang) ? lang : nil
     }
 

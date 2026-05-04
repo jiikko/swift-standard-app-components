@@ -101,17 +101,9 @@ final class LanguageSectionTests: XCTestCase {
         XCTAssertNil(result)
     }
 
-    func testResolveSelectedLanguageReturnsNilWhenAppleLanguagesIsNil() {
-        // UserDefaults に AppleLanguages が無い (= 未設定) → System Default。
-        let result = LanguageSection.resolveSelectedLanguage(
-            appleLanguages: nil,
-            supportedCodes: ["en", "ja"]
-        )
-        XCTAssertNil(result)
-    }
-
     func testResolveSelectedLanguageReturnsNilWhenAppleLanguagesIsEmpty() {
         // 空配列 → 単一要素ではないため System Default。
+        // UserDefaults 未設定 / 型不一致のケースも呼び出し側で空配列に正規化する契約。
         let result = LanguageSection.resolveSelectedLanguage(
             appleLanguages: [],
             supportedCodes: ["en", "ja"]
