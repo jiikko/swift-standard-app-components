@@ -1,6 +1,14 @@
 # StandardAppComponents
 
-Personal SPM. macOS アプリで繰り返し書かれる定型コードを 1 箇所に集約する社内 SPM。複数の社内 macOS アプリ (ThumbnailThumb / vlc-multi-video-player / DualNote 等) で共通化する。
+Personal SPM。**macOS アプリ専用** で、繰り返し書かれる定型コード (Settings ウィンドウ枠 / Toast / 外観切替 / `SMAppService` ラッパー等) を 1 箇所に集約する社内 SPM。
+
+## 対象 / 対象外
+
+- ✓ **対象**: macOS アプリ (`apps/ThumbnailThumb` / `apps/vlc-multi-video-player` / `apps/DualNoteApp` 等の Swift / SwiftUI macOS app)
+- ✗ **対象外**: iOS / watchOS アプリ
+  - `apps/baby-note` (iOS 18+) は本 lib の利用想定なし。AppKit (`NSApp` / `NSWindow` / `SMAppService.mainApp` / `NSVisualEffectView` 等) に依存する API が多く、iOS 化のための platform conditional / 抽象化を入れるよりも、各 iOS app で必要な部分だけ自前実装するほうが筋が良い
+
+`Package.swift` の `platforms: [.macOS(.v14)]` は意図的に macOS only に固定している。iOS 対応の要望が出てきた場合は別 SPM (例: `swift-standard-ios-components`) を切るか、API audit してから判断する。
 
 ## スクリーンショット
 
