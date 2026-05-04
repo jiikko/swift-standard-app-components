@@ -28,7 +28,7 @@ enum ScreenshotGenerator {
         // Settings General タブの中身: NSHostingController 経由でしか描画できない
         // (`Form.formStyle(.grouped)` / `TabView` は ImageRenderer 単独だと layout が解決
         // できず blank or "unavailable" placeholder になるため)。
-        let settingsSize = NSSize(width: 520, height: 360)
+        let settingsSize = NSSize(width: 520, height: 460)
         writeViaHosting(
             view: settingsGeneralContent(scheme: .light),
             size: settingsSize,
@@ -66,7 +66,8 @@ enum ScreenshotGenerator {
     /// `ImageRenderer` で描画できない (Settings Scene context が無いと内部 layout が
     /// 解決できず "unavailable" プレースホルダになる) ため、Tab を含まない
     /// `Form.formStyle(.grouped)` で General タブ相当を直接組む。
-    /// Examples/MinimalApp.swift の構成と同じスロット部品を使う。
+    /// Examples/MinimalApp.swift の構成 + `appSections` slot に lib 提供の汎用
+    /// toggle (`LaunchAtLoginToggle` / `MenuBarVisibilityToggle`) を流し込んだ形を撮る。
     ///
     /// section header は executable target から `Bundle.module` が見えないため
     /// 英語リテラルで直接書く (lib 側は `Text("Appearance", bundle: .module)` で
@@ -87,9 +88,20 @@ enum ScreenshotGenerator {
             } header: {
                 Text("Language")
             }
+
+            Section {
+                // lib 提供のデフォルトラベル (`Bundle.module` 解決の "Open at Login" /
+                // "Show in Menu Bar") をそのまま採用する。executable から `Bundle.module`
+                // は見えないが、`LaunchAtLoginToggle.swift` 自体は lib target の中で
+                // resources を bundle 解決するので screenshot 内でも正しく表示される。
+                LaunchAtLoginToggle()
+                MenuBarVisibilityToggle(isOn: .constant(true))
+            } header: {
+                Text("Startup & Menu Bar")
+            }
         }
         .formStyle(.grouped)
-        .frame(width: 520, height: 320)
+        .frame(width: 520, height: 460)
         .preferredColorScheme(scheme)
     }
 
