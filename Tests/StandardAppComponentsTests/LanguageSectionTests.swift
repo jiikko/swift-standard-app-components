@@ -70,6 +70,64 @@ final class LanguageSectionTests: XCTestCase {
         XCTAssertEqual(LanguageSection.PrimaryAlertButton.restart({}).titleKey, "Restart Now")
     }
 
+    // MARK: - resolveSelectedLanguage (pure function: AppleLanguages → 表示中の選択)
+
+    func testResolveSelectedLanguageReturnsCodeWhenSingleAndSupported() {
+        // 単一指定 + supported に含まれる → そのコードを返す (= 明示選択中)。
+        let result = LanguageSection.resolveSelectedLanguage(
+            appleLanguages: ["ja"],
+            supportedCodes: ["en", "ja"]
+        )
+        XCTAssertEqual(result, "ja")
+    }
+
+    func testResolveSelectedLanguageReturnsNilWhenNotInSupported() {
+        // 単一指定だが supported に含まれない → System Default (nil)。
+        // (consumer が supportedLanguages を絞った後、過去に設定された未対応言語が
+        // 残っているケースを想定)
+        let result = LanguageSection.resolveSelectedLanguage(
+            appleLanguages: ["fr"],
+            supportedCodes: ["en", "ja"]
+        )
+        XCTAssertNil(result)
+    }
+
+    func testResolveSelectedLanguageReturnsNilWhenMultipleLanguages() {
+        // 複数指定 → System OS の優先順位に任せたい意図とみなして System Default。
+        let result = LanguageSection.resolveSelectedLanguage(
+            appleLanguages: ["ja", "en"],
+            supportedCodes: ["en", "ja"]
+        )
+        XCTAssertNil(result)
+    }
+
+    func testResolveSelectedLanguageReturnsNilWhenAppleLanguagesIsNil() {
+        // UserDefaults に AppleLanguages が無い (= 未設定) → System Default。
+        let result = LanguageSection.resolveSelectedLanguage(
+            appleLanguages: nil,
+            supportedCodes: ["en", "ja"]
+        )
+        XCTAssertNil(result)
+    }
+
+    func testResolveSelectedLanguageReturnsNilWhenAppleLanguagesIsEmpty() {
+        // 空配列 → 単一要素ではないため System Default。
+        let result = LanguageSection.resolveSelectedLanguage(
+            appleLanguages: [],
+            supportedCodes: ["en", "ja"]
+        )
+        XCTAssertNil(result)
+    }
+
+    func testResolveSelectedLanguageReturnsNilWhenSupportedIsEmpty() {
+        // consumer が supportedLanguages 空で渡したエッジケース。何が来ても System Default。
+        let result = LanguageSection.resolveSelectedLanguage(
+            appleLanguages: ["en"],
+            supportedCodes: []
+        )
+        XCTAssertNil(result)
+    }
+
     // MARK: - LanguageOption value semantics
 
     func testLanguageOptionEquatable() {

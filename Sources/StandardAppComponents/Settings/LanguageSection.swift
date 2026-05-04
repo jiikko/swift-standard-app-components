@@ -121,17 +121,19 @@ public struct LanguageSection: View {
         }
     }
 
-    /// `AppleLanguages` を直接読んで「単一指定が supportedLanguages に含まれる場合のみ」を
-    /// 「明示選択中」と扱う。それ以外 (複数指定 / 未設定 / 想定外言語) は System Default として表示する。
+    /// `AppleLanguages` を直接読んで `resolveSelectedLanguage` に流す。
+    /// UserDefaults アクセスと「単一指定 + supported に含まれるか」の判定ロジックを
+    /// 分離することで、判定ロジック側を pure function として単体テストできる。
     private func loadCurrentLanguage() -> String? {
         guard let bundleId = Bundle.main.bundleIdentifier,
-              let appDomain = UserDefaults.standard.persistentDomain(forName: bundleId),
-              let languages = appDomain["AppleLanguages"] as? [String],
-              languages.count == 1 else {
+              let appDomain = UserDefaults.standard.persistentDomain(forName: bundleId) else {
             return nil
         }
-        let lang = languages[0]
-        return supportedLanguages.contains(where: { $0.code == lang }) ? lang : nil
+        let languages = appDomain["AppleLanguages"] as? [String]
+        return Self.resolveSelectedLanguage(
+            appleLanguages: languages,
+            supportedCodes: supportedLanguages.map(\.code)
+        )
     }
 
     private func applyLanguage(_ language: String?) {
@@ -140,6 +142,30 @@ public struct LanguageSection: View {
         } else {
             UserDefaults.standard.removeObject(forKey: "AppleLanguages")
         }
+    }
+
+    /// `AppleLanguages` UserDefaults の値から「Picker で明示選択されている言語コード」を
+    /// 解決する pure function。System Default 扱いになる条件を 1 箇所に集約する。
+    ///
+    /// 「明示選択中」と扱う条件: `appleLanguages` が **単一要素** で、その要素が
+    /// `supportedCodes` に含まれていること。
+    /// それ以外 (`nil` / 空配列 / 複数要素 / 単一だが supported 外) はすべて System Default
+    /// として `nil` を返す。
+    ///
+    /// - Parameters:
+    ///   - appleLanguages: `UserDefaults` から取り出した `AppleLanguages` 値。型変換に
+    ///     失敗していれば `nil` を渡す。
+    ///   - supportedCodes: consumer が指定した supportedLanguages の code 一覧。
+    /// - Returns: 明示選択中の言語コード、または System Default なら `nil`。
+    internal static func resolveSelectedLanguage(
+        appleLanguages: [String]?,
+        supportedCodes: [String]
+    ) -> String? {
+        guard let languages = appleLanguages, languages.count == 1 else {
+            return nil
+        }
+        let lang = languages[0]
+        return supportedCodes.contains(lang) ? lang : nil
     }
 
     // MARK: - Presentation model (testable)
