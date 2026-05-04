@@ -199,6 +199,60 @@
         }
       }
     },
+    "Press a key...": {
+      "comment": "ShortcutSettingsTab - recording placeholder",
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Press a key..."
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "キーを押してください..."
+          }
+        }
+      }
+    },
+    "Reset to Default": {
+      "comment": "ShortcutSettingsTab - reset one shortcut help text",
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Reset to Default"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "デフォルトに戻す"
+          }
+        }
+      }
+    },
+    "Reset All to Default": {
+      "comment": "ShortcutSettingsTab - reset all shortcuts button",
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Reset All to Default"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "すべてデフォルトに戻す"
+          }
+        }
+      }
+    },
     "Other": {
       "comment": "Generic section header for miscellaneous Settings (used in lib screenshot demos; consumers may also use it for misc appSections)",
       "extractionState": "manual",

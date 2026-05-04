@@ -143,6 +143,41 @@ LanguageSection(
 
 **採用すべきアプリ種別**: メインウィンドウ + オプショナルなメニューバー常駐の **両方** を持つアプリ。常時メニューバー only のアプリ (= 常時表示固定で toggle 不要) や、メニューバー機能を持たないアプリでは採用しない。
 
+### ショートカット設定タブ (`ShortcutSettingsTab`)
+
+VLCMultiVideoPlayer のショートカットタブ UI を汎用化した Settings 用タブ。context ごとのカード、shortcut chip、録音中表示、競合 warning、個別 reset、Reset All の配置を lib が持つ。
+
+```swift
+ShortcutSettingsTab(
+    groups: [
+        StandardShortcutGroup(
+            id: "global",
+            title: "Global",
+            subtitle: "App-wide shortcuts",
+            items: [
+                StandardShortcutItem(
+                    id: "playPause",
+                    title: "Play / Pause",
+                    shortcut: "Space",
+                    isEditable: true,
+                    isCustomized: false
+                )
+            ]
+        )
+    ],
+    recordingItemID: recordingID,
+    conflictWarning: conflictWarning,
+    onShortcutClick: { item in startRecording(item.id) },
+    onReset: { item in resetShortcut(item.id) },
+    onResetAll: resetAllShortcuts
+)
+.tabItem { Label("Shortcuts", systemImage: "keyboard") }
+.tag("shortcuts")
+.keyboardShortcut("2", modifiers: .command)
+```
+
+lib に置くのは **見た目と Settings タブ内 interaction の器だけ**。`NSEvent` monitor、key capture、永続化、競合判定、実際の shortcut 登録は consumer 側の ViewModel / service に残す。
+
 ---
 
 ## ウィンドウ全般向け modifier (Settings に限らず)

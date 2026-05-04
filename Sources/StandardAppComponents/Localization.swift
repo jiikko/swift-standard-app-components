@@ -31,6 +31,10 @@ public enum StandardAppComponentsLocalization {
         "Restart Now",
         "Quit Now",
         "Later",
+        // ShortcutSettingsTab
+        "Press a key...",
+        "Reset to Default",
+        "Reset All to Default",
         // Generic section header (lib screenshot demos / consumer 側 misc section にも使える)
         "Other"
     ]

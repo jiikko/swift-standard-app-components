@@ -63,6 +63,16 @@
 
 採用候補は menu bar utility、sync client、background availability が価値になるアプリ。document editor / media player のように「使う時だけ開く」アプリへ無条件に入れない。
 
+## ショートカット設定タブ
+
+| API | lib が提供するもの | consumer が実装するもの |
+|---|---|---|
+| `ShortcutSettingsTab` | VLCMultiVideoPlayer 由来の Settings 用ショートカットタブ UI。context ごとのカード、行レイアウト、shortcut chip、録音中 chip、競合 warning 表示、個別 reset、Reset All 配置 | ショートカット一覧の生成、録音開始 / キャンセル、key event capture、永続化、競合判定、実際の shortcut 登録 |
+| `StandardShortcutGroup` | タブ UI に渡す context 表示モデル。`id` / `title` / `subtitle` / `items` | アプリ固有 context 名と説明文 |
+| `StandardShortcutItem` | タブ UI に渡す shortcut 行表示モデル。`id` / `title` / `shortcut` / `isEditable` / `isCustomized` | アプリ固有 command ID、表示名、現在の shortcut 文字列、編集可否、カスタマイズ済み判定 |
+
+この API は「ショートカット設定の見た目」を揃えるためのもの。`NSEvent` monitor、global shortcut registration、conflict policy、UserDefaults / SwiftData などの保存形式は consumer 側に残す。
+
 ## メニューバー表示
 
 | API | lib が提供するもの | consumer が実装するもの |
