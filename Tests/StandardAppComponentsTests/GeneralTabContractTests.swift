@@ -81,4 +81,37 @@ final class GeneralTabContractTests: XCTestCase {
         // を担保する (どちらでも同じ ID を取れる二経路の契約)。
         XCTAssertEqual(SettingsWindow<EmptyView>.generalTabId, SettingsWindowConstants.generalTabId)
     }
+
+    // MARK: - resolveTargetHeight (presentation logic extracted from View)
+
+    func testResolveTargetHeightReturnsMappedHeightWhenPresent() {
+        // heights に entry があれば対応する高さを返す。
+        let height = SettingsWindow<EmptyView>.resolveTargetHeight(
+            selectedTabId: "shortcuts",
+            heights: ["shortcuts": 600, "general": 350],
+            defaultHeight: 400
+        )
+        XCTAssertEqual(height, 600)
+    }
+
+    func testResolveTargetHeightFallsBackToDefaultWhenKeyMissing() {
+        // heights に該当 tag が無ければ defaultHeight にフォールバック。
+        // (consumer が一部のタブだけ heights 指定を持っているケース)
+        let height = SettingsWindow<EmptyView>.resolveTargetHeight(
+            selectedTabId: "untracked-tab",
+            heights: ["general": 350],
+            defaultHeight: 400
+        )
+        XCTAssertEqual(height, 400)
+    }
+
+    func testResolveTargetHeightFallsBackWhenHeightsIsEmpty() {
+        // heights が空 map なら全タブで defaultHeight。
+        let height = SettingsWindow<EmptyView>.resolveTargetHeight(
+            selectedTabId: SettingsWindowConstants.generalTabId,
+            heights: [:],
+            defaultHeight: 350
+        )
+        XCTAssertEqual(height, 350)
+    }
 }

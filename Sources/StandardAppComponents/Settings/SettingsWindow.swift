@@ -98,6 +98,27 @@ public struct SettingsWindow<AppTabs: View>: View {
     /// consumer 側で動的に変更しても直ちに反映される (`onChange(of: targetHeight)`
     /// 経由で animatedHeight に伝搬し、frame height のみアニメーションする)。
     private var targetHeight: CGFloat {
+        Self.resolveTargetHeight(
+            selectedTabId: selectedTabId,
+            heights: heights,
+            defaultHeight: defaultHeight
+        )
+    }
+
+    /// `selectedTabId` / `heights` / `defaultHeight` から表示高さを決定する pure function。
+    /// View instance に依存しない static で公開し、SwiftUI View に閉じない単体テストから
+    /// 直接振る舞いを担保できるようにする。
+    ///
+    /// - Parameters:
+    ///   - selectedTabId: 現在選択中のタブ tag。
+    ///   - heights: タブ tag → 高さ map。
+    ///   - defaultHeight: `heights` に entry がない場合のフォールバック。
+    /// - Returns: `heights[selectedTabId]` があればそれ、なければ `defaultHeight`。
+    internal static func resolveTargetHeight(
+        selectedTabId: String,
+        heights: [String: CGFloat],
+        defaultHeight: CGFloat
+    ) -> CGFloat {
         heights[selectedTabId] ?? defaultHeight
     }
 }
