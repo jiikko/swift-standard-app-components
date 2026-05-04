@@ -41,6 +41,12 @@ enum ScreenshotGenerator {
             name: "settings-general-dark",
             in: outputDir
         )
+        writeViaHosting(
+            view: shortcutSettingsSample(),
+            size: NSSize(width: 560, height: 430),
+            name: "settings-shortcuts",
+            in: outputDir
+        )
 
         // Toast 各種: Toast は pure SwiftUI なので ImageRenderer で十分。
         write(view: toastSample(.success, title: "Saved"), name: "toast-success", in: outputDir)
@@ -143,6 +149,58 @@ enum ScreenshotGenerator {
         .padding(24)
         .frame(width: 420)
         .background(Color(white: 0.95))
+    }
+
+    /// ショートカット設定タブのサンプル。VLCMultiVideoPlayer 由来のレイアウトを
+    /// lib の表示モデル (`StandardShortcutGroup` / `StandardShortcutItem`) だけで再現する。
+    static func shortcutSettingsSample() -> some View {
+        ShortcutSettingsTab(
+            groups: [
+                StandardShortcutGroup(
+                    id: "global",
+                    title: "Global",
+                    subtitle: "App-wide shortcuts",
+                    items: [
+                        StandardShortcutItem(
+                            id: "togglePlayPause",
+                            title: "Play / Pause",
+                            shortcut: "Space"
+                        ),
+                        StandardShortcutItem(
+                            id: "toggleSidebar",
+                            title: "Toggle Sidebar",
+                            shortcut: "⌘E",
+                            isCustomized: true
+                        )
+                    ]
+                ),
+                StandardShortcutGroup(
+                    id: "fullscreen",
+                    title: "Fullscreen",
+                    subtitle: "Fullscreen shortcuts",
+                    items: [
+                        StandardShortcutItem(
+                            id: "exitFullscreen",
+                            title: "Exit Fullscreen",
+                            shortcut: "Esc",
+                            isEditable: false
+                        ),
+                        StandardShortcutItem(
+                            id: "seekForward",
+                            title: "Seek Forward",
+                            shortcut: "→"
+                        )
+                    ]
+                )
+            ],
+            recordingItemID: "toggleSidebar",
+            conflictWarning: "Conflicts with Toggle Search",
+            onShortcutClick: { _ in },
+            onReset: { _ in },
+            onResetAll: {}
+        )
+        .frame(width: 560, height: 430)
+        .background(Color(NSColor.windowBackgroundColor))
     }
 
     // MARK: - Render to PNG (ImageRenderer route — pure SwiftUI views)
