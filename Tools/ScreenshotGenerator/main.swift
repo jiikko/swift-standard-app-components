@@ -69,15 +69,17 @@ enum ScreenshotGenerator {
     /// Examples/MinimalApp.swift の構成 + `appSections` slot に lib 提供の汎用
     /// toggle (`LaunchAtLoginToggle` / `MenuBarVisibilityToggle`) を流し込んだ形を撮る。
     ///
-    /// section header は executable target から `Bundle.module` が見えないため
-    /// 英語リテラルで直接書く (lib 側は `Text("Appearance", bundle: .module)` で
-    /// catalog 解決するが、screenshot 用途では英語固定で十分)。
+    /// 表示は **`LocalizedStringResource` の `locale:` を `ja` で明示固定** する。
+    /// `.environment(\.locale)` だけでは catalog lookup の locale を上書きできない
+    /// ため、`Text(LocalizedStringResource(..., locale: ja))` 経由で ja 解決を強制。
+    /// consumer 側 demo 部品の文言 (テーマ / システム / ライト / ダーク) は lib API
+    /// ではないため hardcoded JP。
     static func settingsGeneralContent(scheme: ColorScheme) -> some View {
         Form {
             Section {
                 AppearanceSampleSection()
             } header: {
-                Text("Appearance")
+                libText("Appearance")
             }
 
             Section {
@@ -86,23 +88,35 @@ enum ScreenshotGenerator {
                     .init(code: "ja", displayName: "日本語")
                 ])
             } header: {
-                Text("Language")
+                libText("Language")
             }
 
             Section {
-                // lib 提供のデフォルトラベル (`Bundle.module` 解決の "Open at Login" /
-                // "Show in Menu Bar") をそのまま採用する。executable から `Bundle.module`
-                // は見えないが、`LaunchAtLoginToggle.swift` 自体は lib target の中で
-                // resources を bundle 解決するので screenshot 内でも正しく表示される。
+                // lib 提供のデフォルトラベル ("Open at Login" / "Show in Menu Bar") を
+                // そのまま採用する。lib 側の `Text(..., bundle: .module)` は env locale を
+                // 上書きできないため、screenshot 上では system locale (= 通常 EN) で resolve。
+                // section header だけ libText() で ja 固定にしている関係で見た目が混在する点
+                // は許容 (代替案: lib 側 toggle ラベルも consumer 側で `LocalizedStringResource`
+                // 化する API を作るが、ぼやきの本筋から外れるため見送り)。
                 LaunchAtLoginToggle()
                 MenuBarVisibilityToggle(isOn: .constant(true))
             } header: {
-                Text("その他")
+                libText("Other")
             }
         }
         .formStyle(.grouped)
         .frame(width: 520, height: 460)
         .preferredColorScheme(scheme)
+    }
+
+    /// Lib catalog のキーを `ja` ロケールで明示解決した `Text` を返す。
+    /// SPM CLI build では `String(localized:)` / `LocalizedStringResource(_, locale:)`
+    /// が xcstrings JSON を直接読まず source language (en) にフォールバックするため、
+    /// lib 提供の `StandardAppComponentsLocalization.lookupString(forKey:locale:)` で
+    /// 直接 ja 値を取り出して Text に渡す。
+    static func libText(_ key: String) -> Text {
+        let value = StandardAppComponentsLocalization.lookupString(forKey: key, locale: "ja") ?? key
+        return Text(value)
     }
 
     /// Toast 単体 (action なし) のサンプル。背景を薄くつけて影が見えるようにする。
