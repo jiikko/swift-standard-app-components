@@ -23,6 +23,10 @@ public enum StandardAppComponentsLocalization {
         "Appearance",
         "Language",
         "Open at Login",
+        // LaunchAtLoginToggle (status footnotes)
+        "Waiting for approval in System Settings › Login Items.",
+        "Open Login Items Settings…",
+        "Open at Login is not available for this app.",
         "Show in Menu Bar",
         // LanguageSection
         "System Default",

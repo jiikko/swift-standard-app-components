@@ -73,6 +73,60 @@
         }
       }
     },
+    "Waiting for approval in System Settings › Login Items.": {
+      "comment": "LaunchAtLoginToggle - footnote shown while SMAppService status is .requiresApproval",
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Waiting for approval in System Settings › Login Items."
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "システム設定 › ログイン項目 での許可待ちです。"
+          }
+        }
+      }
+    },
+    "Open Login Items Settings…": {
+      "comment": "LaunchAtLoginToggle - link button that opens System Settings > Login Items",
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Open Login Items Settings…"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ログイン項目の設定を開く…"
+          }
+        }
+      }
+    },
+    "Open at Login is not available for this app.": {
+      "comment": "LaunchAtLoginToggle - footnote shown while SMAppService status is .notFound or unknown",
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Open at Login is not available for this app."
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "このアプリではログイン時に開く機能を利用できません。"
+          }
+        }
+      }
+    },
     "Show in Menu Bar": {
       "comment": "MenuBarVisibilityToggle - default Toggle label",
       "extractionState": "manual",
