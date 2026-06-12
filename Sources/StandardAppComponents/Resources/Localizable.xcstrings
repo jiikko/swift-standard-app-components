@@ -73,20 +73,20 @@
         }
       }
     },
-    "Waiting for approval in System Settings › Login Items.": {
-      "comment": "LaunchAtLoginToggle - footnote shown while SMAppService status is .requiresApproval",
+    "Allow Open at Login in System Settings › Login Items.": {
+      "comment": "LaunchAtLoginToggle - footnote shown while SMAppService status is .requiresApproval (covers both pending first approval and approval revoked by the user)",
       "extractionState": "manual",
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Waiting for approval in System Settings › Login Items."
+            "value": "Allow Open at Login in System Settings › Login Items."
           }
         },
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "システム設定 › ログイン項目 での許可待ちです。"
+            "value": "システム設定 › ログイン項目 で許可してください。"
           }
         }
       }

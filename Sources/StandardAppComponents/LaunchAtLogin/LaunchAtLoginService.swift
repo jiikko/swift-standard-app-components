@@ -11,8 +11,11 @@ public enum LaunchAtLoginStatus: Equatable, Sendable {
     case enabled
     /// 未登録 (= トグル OFF の通常状態)。
     case notRegistered
-    /// 登録は受理されたが、System Settings › ログイン項目でユーザーの承認待ち。
-    /// この状態ではアプリ側から有効化を完了できない。System Settings への誘導が必要。
+    /// System Settings › ログイン項目でのユーザー許可が必要な状態。
+    /// 初回登録後の承認待ちだけでなく、**ユーザーが System Settings で実行同意を
+    /// 取り消した場合にも** この status が返る。いずれもアプリ側から有効化を完了
+    /// できないため、System Settings への誘導が必要 (`register()` を再発行しても
+    /// already registered / launch denied エラーになり得る)。
     case requiresApproval
     /// 利用不可 (`.notFound` および将来追加されうる未知 status)。
     /// UI はトグルを無効化して登録操作を受け付けないこと。

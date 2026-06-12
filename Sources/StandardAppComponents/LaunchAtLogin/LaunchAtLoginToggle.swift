@@ -91,7 +91,7 @@ public struct LaunchAtLoginToggle: View {
 
             switch status {
             case .requiresApproval:
-                Text("Waiting for approval in System Settings › Login Items.", bundle: .module)
+                Text("Allow Open at Login in System Settings › Login Items.", bundle: .module)
                     .font(.footnote)
                     .foregroundStyle(.secondary)
                 Button {
@@ -116,10 +116,10 @@ public struct LaunchAtLoginToggle: View {
                     .foregroundStyle(.red)
             }
         }
-        .onAppear { syncFromSystem() }
+        .onAppear { resyncAfterExternalChange() }
         .onChange(of: scenePhase) { _, newPhase in
             // 他のアプリで System Settings 側のログイン項目を編集して戻ってきたケースに追従。
-            if newPhase == .active { syncFromSystem() }
+            if newPhase == .active { resyncAfterExternalChange() }
         }
     }
 
@@ -127,6 +127,14 @@ public struct LaunchAtLoginToggle: View {
         Binding(
             get: { isOn },
             set: { newValue in
+                // 承認待ち中の ON 操作は register() し直さない: SDK 上 register() は
+                // already registered / launch denied エラーを返し得るため、誘導ボタンと
+                // 同じ操作 (System Settings を開く) に倒す方が導線として一貫する。
+                if newValue, status == .requiresApproval {
+                    LaunchAtLoginService.openSystemSettingsLoginItems()
+                    syncFromSystem()
+                    return
+                }
                 isOn = newValue
                 do {
                     try LaunchAtLoginService.setEnabled(newValue)
@@ -140,6 +148,16 @@ public struct LaunchAtLoginToggle: View {
                 syncFromSystem()
             }
         )
+    }
+
+    /// onAppear / フォアグラウンド復帰時の再同期。status に加えて操作失敗の
+    /// errorText もクリアする (System Settings で許可して戻ってきた後に古い
+    /// エラーが残ると表示が不整合になるため。画面を離れて戻った時点で操作
+    /// エラーの文脈は失われている)。直近の切替操作の失敗表示を消さないよう、
+    /// `bindingToService` の set 内からはこちらでなく `syncFromSystem()` を呼ぶ。
+    private func resyncAfterExternalChange() {
+        errorText = nil
+        syncFromSystem()
     }
 
     private func syncFromSystem() {
