@@ -30,7 +30,10 @@ jobs:
       # `--config` のみで `--strict` を渡せないため、本リポでは自前で実行する。
       - name: Download SwiftLint
         env:
-          SWIFTLINT_VERSION: "0.63.0"
+          # 他リポ (shared-workflows / 各 app の CI) と版を揃える (0.63.0 → 0.63.2)。
+          # 本リポは SourceKit 依存 (match_kinds) の custom rule を持たないため
+          # 生 Linux バイナリで動く (shared-workflows が docker 化した事情は該当しない)。
+          SWIFTLINT_VERSION: "0.63.2"
         run: |
           curl -sL "https://github.com/realm/SwiftLint/releases/download/${SWIFTLINT_VERSION}/swiftlint_linux_amd64.zip" -o swiftlint.zip
           unzip -q swiftlint.zip
