@@ -21,23 +21,23 @@ final class GeneralTabContractTests: XCTestCase {
         XCTAssertNotNil(contract.appSections)
     }
 
-    func testSettingsWindowAcceptsContract() {
+    // MARK: - SettingsWindow init API surface
+    //
+    // SettingsWindow の公開 init バリエーション (contract のみ / per-tab heights +
+    // defaultHeight / width 指定) が崩れていないことを 1 本で担保する。
+    // 高さ解決の振る舞い自体は下の resolveTargetHeight 系テストが網羅しているので、
+    // ここでは「各 init が呼べて body 評価が通る」= API surface の回帰検出のみが目的。
+    func testSettingsWindowInitVariantsRemainAvailable() {
         let contract = GeneralTabContract(
             appearance: { Text("A") },
             language:   { Text("L") }
         )
-        let window = SettingsWindow(general: contract) { Text("Custom Tab") }
-        _ = window.body
-    }
 
-    func testSettingsWindowAcceptsPerTabHeights() {
-        let contract = GeneralTabContract(
-            appearance: { Text("A") },
-            language:   { Text("L") }
-        )
-        // heights / defaultHeight 指定ありの公開 init が利用可能であること、および
-        // body 評価が通ることを担保する。
-        let window = SettingsWindow(
+        // contract のみ
+        _ = SettingsWindow(general: contract) { Text("Custom Tab") }.body
+
+        // heights / defaultHeight 指定あり
+        _ = SettingsWindow(
             general: contract,
             heights: [
                 SettingsWindow<Text>.generalTabId: 350,
@@ -46,24 +46,16 @@ final class GeneralTabContractTests: XCTestCase {
             defaultHeight: 400
         ) {
             Text("Custom Tab").tag("shortcuts")
-        }
-        _ = window.body
-    }
+        }.body
 
-    func testSettingsWindowAcceptsWidth() {
-        let contract = GeneralTabContract(
-            appearance: { Text("A") },
-            language:   { Text("L") }
-        )
-        // width 指定ありの公開 init が利用可能であることを担保する。
-        let window = SettingsWindow(
+        // width 指定あり
+        _ = SettingsWindow(
             general: contract,
             width: 520,
             heights: ["shortcuts": 600]
         ) {
             Text("Custom Tab").tag("shortcuts")
-        }
-        _ = window.body
+        }.body
     }
 
     // MARK: - SettingsWindowConstants
