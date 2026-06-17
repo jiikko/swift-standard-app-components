@@ -57,12 +57,20 @@ final class LocalizationMissingKeyTests: XCTestCase {
             StandardAppComponentsLocalization.lookupString(forKey: "Other", locale: "ja"),
             "その他"
         )
+        XCTAssertEqual(
+            StandardAppComponentsLocalization.lookupString(forKey: "Cancel", locale: "ja"),
+            "キャンセル"
+        )
     }
 
     func testLookupStringReturnsEnglishValueForKnownKey() {
         XCTAssertEqual(
             StandardAppComponentsLocalization.lookupString(forKey: "Open at Login", locale: "en"),
             "Open at Login"
+        )
+        XCTAssertEqual(
+            StandardAppComponentsLocalization.lookupString(forKey: "Cancel", locale: "en"),
+            "Cancel"
         )
     }
 

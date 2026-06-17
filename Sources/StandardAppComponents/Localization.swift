@@ -39,6 +39,8 @@ public enum StandardAppComponentsLocalization {
         "Press a key...",
         "Reset to Default",
         "Reset All to Default",
+        // Feedback
+        "Cancel",
         // Generic section header (lib screenshot demos / consumer 側 misc section にも使える)
         "Other"
     ]

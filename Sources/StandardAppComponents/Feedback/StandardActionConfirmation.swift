@@ -31,10 +31,8 @@ private struct StandardActionConfirmation<Subject>: ViewModifier {
     @Binding private var isPresented: Bool
     private let title: LocalizedStringResource
     private let subject: Subject?
-    private let primary: StandardActionButton?
-    private let secondary: StandardActionButton?
-    private let destructive: StandardActionButton?
-    private let cancel: LocalizedStringResource
+    private let configuration: StandardActionConfirmationConfiguration
+    private let cancel: Text
     private let message: (Subject) -> Text
 
     init(
@@ -44,15 +42,18 @@ private struct StandardActionConfirmation<Subject>: ViewModifier {
         primary: StandardActionButton?,
         secondary: StandardActionButton?,
         destructive: StandardActionButton?,
-        cancel: LocalizedStringResource,
+        cancel: Text,
         message: @escaping (Subject) -> Text
     ) {
         _isPresented = isPresented
         self.title = title
         self.subject = subject
-        self.primary = primary
-        self.secondary = secondary
-        self.destructive = destructive
+        configuration = StandardActionConfirmationConfiguration(
+            hasSubject: subject != nil,
+            primary: primary,
+            secondary: secondary,
+            destructive: destructive
+        )
         self.cancel = cancel
         self.message = message
     }
@@ -63,29 +64,58 @@ private struct StandardActionConfirmation<Subject>: ViewModifier {
             isPresented: $isPresented,
             titleVisibility: .visible,
             actions: {
-                if subject != nil {
-                    confirmationButton(primary)
-                    confirmationButton(secondary)
-                    confirmationButton(destructive)
+                if configuration.showsSubjectActions {
+                    let buttons = configuration.actionButtons
+                    ForEach(buttons.indices, id: \.self) { index in
+                        let button = buttons[index]
+                        Button(button.title, role: button.role) {
+                            button.handler()
+                        }
+                    }
                 }
 
-                Button(cancel, role: .cancel) {}
+                Button(role: .cancel) {} label: {
+                    cancel
+                }
             },
             message: {
-                if let subject {
+                if configuration.showsMessage, let subject {
                     message(subject)
                 }
             }
         )
     }
+}
 
-    @ViewBuilder
-    private func confirmationButton(_ button: StandardActionButton?) -> some View {
-        if let button {
-            Button(button.title, role: button.role) {
-                button.handler()
-            }
-        }
+struct StandardActionConfirmationConfiguration {
+    let hasSubject: Bool
+    private let primary: StandardActionButton?
+    private let secondary: StandardActionButton?
+    private let destructive: StandardActionButton?
+
+    init(
+        hasSubject: Bool,
+        primary: StandardActionButton?,
+        secondary: StandardActionButton?,
+        destructive: StandardActionButton?
+    ) {
+        self.hasSubject = hasSubject
+        self.primary = primary
+        self.secondary = secondary
+        self.destructive = destructive
+    }
+
+    var showsSubjectActions: Bool {
+        hasSubject
+    }
+
+    var showsMessage: Bool {
+        hasSubject
+    }
+
+    var actionButtons: [StandardActionButton] {
+        guard hasSubject else { return [] }
+        return [primary, secondary, destructive].compactMap { $0 }
     }
 }
 
@@ -102,7 +132,29 @@ extension View {
         primary: StandardActionButton? = nil,
         secondary: StandardActionButton? = nil,
         destructive: StandardActionButton? = nil,
-        cancel: LocalizedStringResource = "Cancel",
+        message: @escaping (Subject) -> Text
+    ) -> some View {
+        standardActionConfirmation(
+            isPresented: isPresented,
+            title: title,
+            subject: subject,
+            primary: primary,
+            secondary: secondary,
+            destructive: destructive,
+            cancel: Text("Cancel", bundle: .module),
+            message: message
+        )
+    }
+
+    /// 標準的な action confirmation dialog を、custom cancel label 付きで付与する。
+    public func standardActionConfirmation<Subject>(
+        isPresented: Binding<Bool>,
+        title: LocalizedStringResource,
+        subject: Subject?,
+        primary: StandardActionButton? = nil,
+        secondary: StandardActionButton? = nil,
+        destructive: StandardActionButton? = nil,
+        cancel: Text,
         message: @escaping (Subject) -> Text
     ) -> some View {
         modifier(

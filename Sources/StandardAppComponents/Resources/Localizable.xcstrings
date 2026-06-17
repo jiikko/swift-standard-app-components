@@ -307,6 +307,24 @@
         }
       }
     },
+    "Cancel": {
+      "comment": "Feedback components - cancel button",
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Cancel"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "キャンセル"
+          }
+        }
+      }
+    },
     "Other": {
       "comment": "Generic section header for miscellaneous Settings (used in lib screenshot demos; consumers may also use it for misc appSections)",
       "extractionState": "manual",

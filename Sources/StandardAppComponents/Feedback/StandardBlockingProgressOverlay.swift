@@ -19,11 +19,15 @@ private struct StandardBlockingProgressOverlay: ViewModifier {
     }
 
     func body(content: Content) -> some View {
-        ZStack {
-            content
-                .disabled(isPresented)
+        let configuration = StandardBlockingProgressOverlayConfiguration(
+            isPresented: isPresented,
+            hasCancelAction: onCancel != nil
+        )
 
-            if isPresented {
+        ZStack {
+            content.disabled(configuration.disablesBackground)
+
+            if configuration.showsOverlay {
                 overlay
                     .transition(.opacity)
                     .zIndex(1)
@@ -55,8 +59,10 @@ private struct StandardBlockingProgressOverlay: ViewModifier {
                 }
 
                 if let onCancel {
-                    Button("Cancel", role: .cancel) {
+                    Button(role: .cancel) {
                         onCancel()
+                    } label: {
+                        Text("Cancel", bundle: .module)
                     }
                     .keyboardShortcut(.cancelAction)
                 }
@@ -69,6 +75,23 @@ private struct StandardBlockingProgressOverlay: ViewModifier {
             .accessibilityElement(children: .combine)
         }
         .allowsHitTesting(true)
+    }
+}
+
+struct StandardBlockingProgressOverlayConfiguration {
+    let isPresented: Bool
+    let hasCancelAction: Bool
+
+    var showsOverlay: Bool {
+        isPresented
+    }
+
+    var disablesBackground: Bool {
+        isPresented
+    }
+
+    var showsCancelButton: Bool {
+        hasCancelAction
     }
 }
 
