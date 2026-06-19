@@ -24,7 +24,7 @@ jobs:
     # SwiftUI を実際にコンパイルするのは test workflow (macOS) の役目。
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
       # SwiftLint Linux バイナリをダウンロード。shared-workflows は
       # `--config` のみで `--strict` を渡せないため、本リポでは自前で実行する。
