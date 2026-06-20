@@ -51,7 +51,7 @@ Settings 以外の root view / 任意 view に置く UI component と、view 内
 | Toast | `Toast`, `ToastText`, `ToastAction`, `ToastManaging`, `ToastManager`, `ToastView`, `ToastContainerView`, `View.standardToastContainer(_:)` |
 | Blocking decision / progress | `StandardActionButton`, `View.standardActionConfirmation(...)`, `View.standardBlockingProgressOverlay(...)` |
 | Window background | `WindowBackgroundView` |
-| ダブルクリック検出 | `DoubleClickDetector` (即時 single + ダブルクリック起動を両立。row / cell ごとに `@State` で別 instance を持つ。詳細は [docs/api-boundaries.md](docs/api-boundaries.md)) |
+| ダブルクリック検出 | `DoubleClickDetector` (即時 single + ダブルクリック起動を両立。位置モード `checkDoubleClick(at:)` / id モード `checkDoubleClick(id:)` の 2 モード。1 instance = 1 モード。詳細は [docs/api-boundaries.md](docs/api-boundaries.md)) |
 
 ### アプリ全体 helper
 

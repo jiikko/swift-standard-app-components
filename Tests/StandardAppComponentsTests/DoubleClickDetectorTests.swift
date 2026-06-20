@@ -99,12 +99,80 @@ final class DoubleClickDetectorTests: XCTestCase {
         XCTAssertFalse(detector.evaluate(at: .zero, now: t0.addingTimeInterval(0.1), systemInterval: 0.3))
     }
 
+    // MARK: - id mode
+
+    func testIDSameTargetWithinIntervalIsDoubleClick() {
+        let detector = DoubleClickDetector(minimumInterval: 0.3)
+
+        XCTAssertFalse(detector.evaluate(id: "tab-a", now: t0, systemInterval: 0.3))
+        XCTAssertTrue(detector.evaluate(id: "tab-a", now: t0.addingTimeInterval(0.1), systemInterval: 0.3))
+    }
+
+    func testIDDifferentTargetIsNotDoubleClick() {
+        // 時間内でも、別 id への 2 連クリックは double にならない (= 別 tab を続けて
+        // click しても起動しない)。
+        let detector = DoubleClickDetector(minimumInterval: 0.3)
+
+        XCTAssertFalse(detector.evaluate(id: "tab-a", now: t0, systemInterval: 0.3))
+        XCTAssertFalse(detector.evaluate(id: "tab-b", now: t0.addingTimeInterval(0.1), systemInterval: 0.3))
+    }
+
+    func testIDExpiredIntervalIsNotDoubleClick() {
+        let detector = DoubleClickDetector(minimumInterval: 0.3)
+
+        XCTAssertFalse(detector.evaluate(id: "tab", now: t0, systemInterval: 0.3))
+        XCTAssertFalse(detector.evaluate(id: "tab", now: t0.addingTimeInterval(0.5), systemInterval: 0.3))
+    }
+
+    func testIDFloorApplies() {
+        // floor は id モードでも効く (位置モードと共通コア)。
+        let detector = DoubleClickDetector(minimumInterval: 0.3)
+
+        XCTAssertFalse(detector.evaluate(id: 1, now: t0, systemInterval: 0.15))
+        XCTAssertTrue(detector.evaluate(id: 1, now: t0.addingTimeInterval(0.25), systemInterval: 0.15))
+    }
+
+    func testIDTripleClickDoesNotProduceTwoDoubleClicks() {
+        let detector = DoubleClickDetector(minimumInterval: 0.3)
+
+        XCTAssertFalse(detector.evaluate(id: "tab", now: t0, systemInterval: 0.3))
+        XCTAssertTrue(detector.evaluate(id: "tab", now: t0.addingTimeInterval(0.1), systemInterval: 0.3))
+        XCTAssertFalse(detector.evaluate(id: "tab", now: t0.addingTimeInterval(0.2), systemInterval: 0.3))
+    }
+
+    func testIDTypeMismatchIsNotDoubleClick() {
+        // 同じ数値でも型が違えば別ターゲット。AnyHashable の数値ブリッジ
+        // (AnyHashable(1 as Int) == AnyHashable(1 as Int64)) による誤一致を型で弾く。
+        let detector = DoubleClickDetector(minimumInterval: 0.3)
+
+        XCTAssertFalse(detector.evaluate(id: 1 as Int, now: t0, systemInterval: 0.3))
+        XCTAssertFalse(detector.evaluate(id: 1 as Int64, now: t0.addingTimeInterval(0.1), systemInterval: 0.3))
+    }
+
+    // MARK: - cross-mode 境界 (1 instance = 1 mode 想定)
+
+    func testCrossModeSwitchLocationThenIDDoesNotDoubleClick() {
+        // 直前が位置モードなら、id モードの click は同一ターゲットにならない。
+        let detector = DoubleClickDetector(minimumInterval: 0.3)
+
+        XCTAssertFalse(detector.evaluate(at: .zero, now: t0, systemInterval: 0.3))
+        XCTAssertFalse(detector.evaluate(id: 1, now: t0.addingTimeInterval(0.1), systemInterval: 0.3))
+    }
+
+    func testCrossModeSwitchIDThenLocationDoesNotDoubleClick() {
+        // 逆方向: 直前が id モードなら、位置モードの click は同一ターゲットにならない。
+        let detector = DoubleClickDetector(minimumInterval: 0.3)
+
+        XCTAssertFalse(detector.evaluate(id: 1, now: t0, systemInterval: 0.3))
+        XCTAssertFalse(detector.evaluate(at: .zero, now: t0.addingTimeInterval(0.1), systemInterval: 0.3))
+    }
+
     // MARK: - public API surface
 
-    func testCheckDoubleClickNoArgFirstClickIsSingle() {
-        // 引数省略の public 経路 (= production callsite と同じ) が動くことの smoke。
-        // 初回 click は必ず single。
-        let detector = DoubleClickDetector()
-        XCTAssertFalse(detector.checkDoubleClick())
+    func testPublicSurfaceFirstClickIsSingle() {
+        // 引数つきの public 経路 (= production callsite と同じ) が動くことの smoke。
+        // 初回 click は両モードとも必ず single。
+        XCTAssertFalse(DoubleClickDetector().checkDoubleClick(at: .zero))
+        XCTAssertFalse(DoubleClickDetector().checkDoubleClick(id: 1))
     }
 }
