@@ -196,10 +196,11 @@ public extension AppLog {
     /// に限定する。`OSLogMessage` を変数で受けて forward すると
     /// `error: argument must be a string interpolation` でコンパイルできない (実測
     /// 2026-06-21。`LogPrivacy` の「関数境界を越えられない」制約の一形態)。よって
-    /// 補間ごとの privacy を保ったまま `Logger` 呼び出しを wrap するのは原理的に不可能で、
-    /// 「raw `Logger` を返す」しか選択肢がない。raw を返すため lib の API 統制 (level 集合 /
-    /// privacy 既定) は効かない点に注意。stderr ミラーも行わない (field 単位 privacy を
-    /// 平文再構成しないため。stderr でも見たい要約は line log を別途出す)。
+    /// 現行の Swift / OSLog API では、補間ごとの privacy を保ったまま `Logger` 呼び出しを
+    /// 薄く wrap できず、「raw `Logger` を返す」形を取る (API が変われば再検討の余地はある)。
+    /// raw を返すため lib の API 統制 (level 集合 / privacy 既定) は効かない点に注意。
+    /// stderr ミラーも行わない (field 単位 privacy を平文再構成しないため。stderr でも
+    /// 見たい要約は line log を別途出す)。
     func osLogger(for category: any LogCategory) -> Logger {
         Logger(subsystem: subsystem, category: category.categoryName)
     }
