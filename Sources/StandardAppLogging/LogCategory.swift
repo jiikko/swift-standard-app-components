@@ -14,6 +14,29 @@ public enum LogLevel: Sendable, CaseIterable {
     case fault
 }
 
+extension LogLevel {
+    /// 色を使えない sink (`colorize: false` の stderr ミラー / grep / CI) で level を
+    /// **文字**として読ませるための安定ラベル。case 名と一致させる
+    /// (色付きの開発ビューでは level は ANSI 色で表すため、この label は使わない。
+    /// `AppLog.mirrorLine` 参照)。
+    var label: String {
+        switch self {
+        case .debug:   return "debug"
+        case .info:    return "info"
+        case .notice:  return "notice"
+        case .warning: return "warning"
+        case .error:   return "error"
+        case .fault:   return "fault"
+        }
+    }
+
+    /// `[label]` 形式を左詰めで揃えるための列幅 (= 最長の `[warning]` = 9)。
+    /// `allCases` から導くので level が増減しても自動追従する。
+    static let labelColumnWidth: Int = LogLevel.allCases
+        .map { "[\($0.label)]".count }
+        .max() ?? 0
+}
+
 // MARK: - Log Privacy
 
 /// 1 ログメッセージ全体に適用する privacy ポリシー (**メッセージ単位**)。

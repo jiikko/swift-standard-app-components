@@ -5,7 +5,7 @@ import Foundation
 /// dev leg (stderr / `make dev-fg` の tee pipe) 向けの ANSI 色付け。
 ///
 /// **os.Logger 側には適用しない** (`os.Logger` は ANSI を解さず Console.app に
-/// 生の escape コードが見えるだけ)。色は DEBUG の NSLog ミラーにのみ載せる。
+/// 生の escape コードが見えるだけ)。色は DEBUG の stderr ミラーにのみ載せる。
 enum LogColor {
     private static let reset = "\u{001B}[0m"
 

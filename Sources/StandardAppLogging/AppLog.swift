@@ -114,14 +114,23 @@ public struct AppLog: Sendable {
 
     /// DEBUG stderr ミラーの 1 行を組み立てる純粋関数 (副作用なし / 改行なし)。
     ///
-    /// `[category] message` に整形し、`colorize` のときレベル別 ANSI 色で包む
-    /// (info 等 `LogColor.ansiCode` が nil のレベルは色を付けない)。`emitDebugMirror`
-    /// の整形ロジックをここに切り出すのは、stderr 副作用と分離して **整形結果そのもの**
-    /// (bracket 形式 + 色付け) を unit-test で固定するため。`#if DEBUG` で囲まないのは
-    /// テスト (debug build) から写像を担保できるようにするため。
+    /// 本文は常に `[category] message`。level の見せ方を `colorize` で 2 通りに分ける:
+    /// - `colorize: true` (DEBUG の既定 / 開発ビュー): 本文をレベル別 ANSI 色で包む
+    ///   (info 等 `LogColor.ansiCode` が nil のレベルは色を付けない)。level は **色** で表す。
+    /// - `colorize: false` (grep / CI / `tmp/debug.log`): ANSI を載せられないので level が
+    ///   消える。代わりに `[level]` を**文字**で前置し、`labelColumnWidth` で左詰め整列して
+    ///   category 列を揃える (例: `[error]   [network] timeout`)。
+    ///
+    /// `emitDebugMirror` の整形ロジックをここに切り出すのは、stderr 副作用と分離して
+    /// **整形結果そのもの** (bracket 形式 + 色付け / level 前置) を unit-test で固定するため。
+    /// `#if DEBUG` で囲まないのはテスト (debug build) から写像を担保できるようにするため。
     static func mirrorLine(level: LogLevel, category: String, message: String, colorize: Bool) -> String {
-        let line = "[\(category)] \(message)"
-        return colorize ? LogColor.apply(level: level, to: line) : line
+        let body = "[\(category)] \(message)"
+        guard !colorize else {
+            return LogColor.apply(level: level, to: body)
+        }
+        let levelTag = "[\(level.label)]".padding(toLength: LogLevel.labelColumnWidth, withPad: " ", startingAt: 0)
+        return "\(levelTag) \(body)"
     }
 }
 

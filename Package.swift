@@ -12,7 +12,7 @@ let package = Package(
             name: "StandardAppComponents",
             targets: ["StandardAppComponents"]
         ),
-        // UI 非依存のロギング機構 (dual-sink: os.Logger + DEBUG NSLog ミラー + 色 + privacy)。
+        // UI 非依存のロギング機構 (dual-sink: os.Logger + DEBUG stderr ミラー + 色 + privacy)。
         // `StandardAppComponents` (UI 主体) とは別 product にすることで、UI 依存を背負えない
         // レイヤー (例: consumer の Infrastructure) からも依存できる。
         .library(

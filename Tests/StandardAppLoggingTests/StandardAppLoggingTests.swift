@@ -2,11 +2,11 @@ import XCTest
 import OSLog
 @testable import StandardAppLogging
 
-/// 副作用 (os.Logger / NSLog) は SPM 単体テストで観測しにくいため、
+/// 副作用 (os.Logger / stderr) は SPM 単体テストで観測しにくいため、
 /// `AppLog` から切り出した**純粋な写像規則**を直接担保する
-/// (色コード / OSLogType 写像 / privacy 解決)。これらが壊れると
-/// 「error なのに色が付かない」「private 既定が public になる」等の
-/// 静かな回帰になるため、最小限ここを押さえる。
+/// (色コード / OSLogType 写像 / privacy 解決 / level ラベル整列)。これらが壊れると
+/// 「error なのに色が付かない」「private 既定が public になる」「色なしログから
+/// level が消える」等の静かな回帰になるため、最小限ここを押さえる。
 final class StandardAppLoggingTests: XCTestCase {
 
     // MARK: - Color mapping
@@ -51,34 +51,58 @@ final class StandardAppLoggingTests: XCTestCase {
         XCTAssertEqual(SampleCategory.safe.defaultPrivacy, .public)
     }
 
-    // MARK: - DEBUG mirror line formatting
+    // MARK: - Level label (色なし sink 向け)
 
-    func testMirrorLineWrapsCategoryAndMessage() {
-        XCTAssertEqual(
-            AppLog.mirrorLine(level: .info, category: "network", message: "boom", colorize: false),
-            "[network] boom"
-        )
+    func testLevelLabelsMatchCaseNames() {
+        XCTAssertEqual(LogLevel.debug.label, "debug")
+        XCTAssertEqual(LogLevel.info.label, "info")
+        XCTAssertEqual(LogLevel.notice.label, "notice")
+        XCTAssertEqual(LogLevel.warning.label, "warning")
+        XCTAssertEqual(LogLevel.error.label, "error")
+        XCTAssertEqual(LogLevel.fault.label, "fault")
     }
 
-    func testMirrorLineColorizesByLevel() {
+    func testLabelColumnWidthIsLongestBracketedLabel() {
+        // "[warning]" が最長 (9)。整列幅の契約を固定する。
+        XCTAssertEqual(LogLevel.labelColumnWidth, 9)
+    }
+
+    // MARK: - DEBUG mirror line formatting
+
+    func testMirrorLineColorizedWrapsBodyByLevelWithoutLevelText() {
+        // colorize=true (開発ビュー): level は ANSI 色で表し、本文は [category] message のみ。
         XCTAssertEqual(
             AppLog.mirrorLine(level: .error, category: "network", message: "boom", colorize: true),
             "\u{001B}[31m[network] boom\u{001B}[0m"
         )
     }
 
-    func testMirrorLineColorizeFalseLeavesLinePlain() {
-        XCTAssertEqual(
-            AppLog.mirrorLine(level: .error, category: "network", message: "boom", colorize: false),
-            "[network] boom"
-        )
-    }
-
-    func testMirrorLineInfoHasNoColorEvenWhenColorized() {
+    func testMirrorLineColorizedInfoHasNoColorAndNoLevelText() {
         // info は LogColor.ansiCode が nil なので colorize=true でも色が付かない。
+        // colorize=true なので level テキストも付かない。
         XCTAssertEqual(
             AppLog.mirrorLine(level: .info, category: "app", message: "hi", colorize: true),
             "[app] hi"
+        )
+    }
+
+    func testMirrorLineNotColorizedPrependsLevelLabel() {
+        // colorize=false (grep / CI / tmp/debug.log): 色が使えないので [level] を文字で前置。
+        XCTAssertEqual(
+            AppLog.mirrorLine(level: .error, category: "network", message: "boom", colorize: false),
+            "[error]   [network] boom"
+        )
+        XCTAssertEqual(
+            AppLog.mirrorLine(level: .info, category: "perf", message: "decoded in 12ms", colorize: false),
+            "[info]    [perf] decoded in 12ms"
+        )
+    }
+
+    func testMirrorLineNotColorizedAlignsCategoryColumn() {
+        // 最長 level "[warning]" はパディングなしで、category 列が他レベルと揃う。
+        XCTAssertEqual(
+            AppLog.mirrorLine(level: .warning, category: "network", message: "retry", colorize: false),
+            "[warning] [network] retry"
         )
     }
 }
