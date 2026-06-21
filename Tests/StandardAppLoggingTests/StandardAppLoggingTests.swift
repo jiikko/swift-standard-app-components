@@ -50,6 +50,37 @@ final class StandardAppLoggingTests: XCTestCase {
         XCTAssertEqual(SampleCategory.secret.defaultPrivacy, .private)
         XCTAssertEqual(SampleCategory.safe.defaultPrivacy, .public)
     }
+
+    // MARK: - DEBUG mirror line formatting
+
+    func testMirrorLineWrapsCategoryAndMessage() {
+        XCTAssertEqual(
+            AppLog.mirrorLine(level: .info, category: "network", message: "boom", colorize: false),
+            "[network] boom"
+        )
+    }
+
+    func testMirrorLineColorizesByLevel() {
+        XCTAssertEqual(
+            AppLog.mirrorLine(level: .error, category: "network", message: "boom", colorize: true),
+            "\u{001B}[31m[network] boom\u{001B}[0m"
+        )
+    }
+
+    func testMirrorLineColorizeFalseLeavesLinePlain() {
+        XCTAssertEqual(
+            AppLog.mirrorLine(level: .error, category: "network", message: "boom", colorize: false),
+            "[network] boom"
+        )
+    }
+
+    func testMirrorLineInfoHasNoColorEvenWhenColorized() {
+        // info は LogColor.ansiCode が nil なので colorize=true でも色が付かない。
+        XCTAssertEqual(
+            AppLog.mirrorLine(level: .info, category: "app", message: "hi", colorize: true),
+            "[app] hi"
+        )
+    }
 }
 
 // MARK: - Fixtures

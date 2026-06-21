@@ -104,14 +104,25 @@ public struct AppLog: Sendable {
 
     #if DEBUG
     private func emitDebugMirror(level: LogLevel, category: String, message: String) {
-        let line = "[\(category)] \(message)"
-        let out = colorize ? LogColor.apply(level: level, to: line) : line
         // dev leg は **stderr のみ** に書く。stderr は unbuffered なので `make dev-fg`
         // の tee pipe に即時に出る。NSLog を使わないのは unified log への複製を避けるため
         // (codex 設計review P1: NSLog だと .private メッセージが DEBUG で平文複製 + ANSI 混入)。
+        let out = AppLog.mirrorLine(level: level, category: category, message: message, colorize: colorize)
         fputs(out + "\n", stderr)
     }
     #endif
+
+    /// DEBUG stderr ミラーの 1 行を組み立てる純粋関数 (副作用なし / 改行なし)。
+    ///
+    /// `[category] message` に整形し、`colorize` のときレベル別 ANSI 色で包む
+    /// (info 等 `LogColor.ansiCode` が nil のレベルは色を付けない)。`emitDebugMirror`
+    /// の整形ロジックをここに切り出すのは、stderr 副作用と分離して **整形結果そのもの**
+    /// (bracket 形式 + 色付け) を unit-test で固定するため。`#if DEBUG` で囲まないのは
+    /// テスト (debug build) から写像を担保できるようにするため。
+    static func mirrorLine(level: LogLevel, category: String, message: String, colorize: Bool) -> String {
+        let line = "[\(category)] \(message)"
+        return colorize ? LogColor.apply(level: level, to: line) : line
+    }
 }
 
 // MARK: - LogLevel -> OSLogType
