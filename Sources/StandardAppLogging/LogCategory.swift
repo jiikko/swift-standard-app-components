@@ -62,5 +62,8 @@ public protocol LogCategory: Sendable {
 
     /// callsite が privacy を明示しなかったときの既定 (メッセージ単位)。
     /// secret 近傍の領域は `.private` を返すこと。
+    /// 注意: `.public` を返すカテゴリは release で **何も秘匿しない**。category は
+    /// secret を守る安全網ではないので、secret を含みうる文字列は category に
+    /// 関係なく callsite で sanitize 済みにして渡す (`AppLog` の doc 参照)。
     var defaultPrivacy: LogPrivacy { get }
 }

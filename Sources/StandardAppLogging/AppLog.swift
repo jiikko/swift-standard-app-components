@@ -7,18 +7,27 @@ import OSLog
 ///
 /// 1 回の呼び出しで 2 つの sink に出す:
 /// - **`os.Logger` (常時)**: unified logging。リリースビルドでも OS が記録するため
-///   配布後の事後診断 (`log show` / sysdiagnose) に使える。privacy ポリシーで
-///   release の平文露出を防ぐ。
+///   配布後の事後診断 (`log show` / sysdiagnose) に使える。`.private` カテゴリは
+///   release で平文露出が畳まれる (下記 privacy の注意を参照)。
 /// - **stderr ミラー (DEBUG のみ)**: `make dev-fg` の tee pipe (unbuffered stderr) に
 ///   出す開発用。レベル別 ANSI 色付き。`#if DEBUG` 限定なので release には出ない。
 ///   `NSLog` ではなく `fputs(stderr)` を使う (NSLog は unified log にも複製され、
 ///   `.private` メッセージが DEBUG で平文複製 + ANSI 混入するため。codex 設計review P1)。
 ///
 /// 「sink ごとの整形 / privacy / 色を 1 箇所に集約し、callsite では毎回判断しない」
-/// のが目的。**privacy は `category` が唯一の決定者** (per-call override を持たない =
-/// secret 近傍カテゴリへ誤って public を渡す経路が構造的に存在しない)。フィールド単位で
-/// 公開/秘匿を出し分けたい callsite は `os.Logger` を直接使う (`LogPrivacy` 参照)。
-/// secret を含みうる文字列は **呼び出し側で sanitize 済みにして渡す**。
+/// のが目的。**privacy は `category` が唯一の決定者** (per-call override を持たない)。
+/// ただしこれは万能な安全網ではなく、**「`.private` カテゴリへ呼び出しごとに `.public` を
+/// 上書きして渡す」一方向を塞ぐだけ**である点に注意 (誤読しやすい):
+///
+/// - `.private` カテゴリは release で **メッセージ全体** が `<private>` に畳まれる
+///   (os.Logger の補間ごとの出し分けは関数境界を越えられないため。`LogPrivacy` 参照)。
+///   静的な文脈ごと秘匿されるので、選択的に残したい診断は `os.Logger` を直接使う。
+/// - `.public` カテゴリは **何も秘匿しない**。public カテゴリのメッセージに secret を
+///   補間すれば release でも平文で残る。category は secret を守る安全網ではない。
+///
+/// したがって **secret を含みうる文字列は category に関係なく、呼び出し側で sanitize 済みに
+/// してから渡す**こと。フィールド単位で公開/秘匿を出し分けたい callsite は本 facade に
+/// 寄せず `os.Logger` を直接使う。
 ///
 /// 値型 + immutable で `Sendable`。アプリは composition root で 1 個作って共有する:
 ///
