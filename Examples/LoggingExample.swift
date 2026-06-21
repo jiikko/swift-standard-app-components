@@ -10,12 +10,13 @@
 
 import Foundation
 import StandardAppLogging
+import OSLog   // structured レーン (osLogger) の privacy: 補間に必要 (StandardAppLogging は OSLog を re-export しない)
 
 // MARK: - カテゴリ集合 (アプリ側で定義する)
 
 // lib はカテゴリの集合を知らない。アプリは「サブシステム領域ごとに 1 case」の enum を
 // LogCategory に適合させる (exhaustive になり、追加が compile で気づける)。
-// categoryName / defaultPrivacy は純値で返すこと (actor / main-actor state を読まない)。
+// categoryName / defaultMessagePrivacy は純値で返すこと (actor / main-actor state を読まない)。
 enum MyLogCategory: String, LogCategory {
     case app
     case network
@@ -23,7 +24,9 @@ enum MyLogCategory: String, LogCategory {
 
     var categoryName: String { rawValue }
 
-    var defaultPrivacy: LogPrivacy {
+    // defaultMessagePrivacy は line log (info/error 等) のメッセージ全体にだけ効く。
+    // structured レーン (osLogger(for:)) では補間ごとに privacy を明示する。
+    var defaultMessagePrivacy: LogPrivacy {
         switch self {
         case .network:      return .private   // secret 近傍。release で <private> に畳む
         case .app, .perf:   return .public
@@ -69,11 +72,23 @@ struct SyncClient {
     private func sanitize(_ error: Error) -> String { "\(type(of: error))" }
 }
 
-// MARK: - 補間ごとに privacy を分けたい callsite は os.Logger を直接使う
-//
-// AppLog はメッセージ単位の privacy しか扱えないため、フィールド単位で公開/秘匿を
-// 出し分けたいときは facade に寄せず os.Logger を使う:
-//
-//   import OSLog
-//   let logger = Logger(subsystem: "com.example.myapp", category: "auth")
-//   logger.info("user=\(userID, privacy: .private) status=\(status, privacy: .public)")
+// MARK: - structured レーン: 補間ごとに privacy を分けたい callsite
+
+// line log (上の info/error) はメッセージ単位の privacy しか扱えない。
+// フィールド単位で公開/秘匿を出し分けたいときは appLog.osLogger(for:) で
+// category 規約付きの Logger を得て、返った Logger に直接書く。
+// 入口はあくまで appLog なので Logger(subsystem:category:) を手打ちしない
+// (= subsystem / category 規約が structured 側でも保たれる)。
+// ※ この callsite は import OSLog が必要 (privacy: 補間が OSLogPrivacy を参照するため)。
+struct AuthClient {
+    let log: AppLog
+
+    func signIn(userID: String, status: Int) {
+        log.osLogger(for: MyLogCategory.network).info(
+            "user=\(userID, privacy: .private) status=\(status, privacy: .public)"
+        )
+        // structured レーンは os.Logger のみ (DEBUG stderr ミラーはしない)。
+        // stderr でも見たい要約は sanitize 済みの line log を別途出す:
+        log.info(.app, "signIn status=\(status)")
+    }
+}
