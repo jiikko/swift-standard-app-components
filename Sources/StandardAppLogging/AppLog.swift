@@ -3,7 +3,16 @@ import OSLog
 
 // MARK: - AppLog
 
-/// アプリ共通のログ書き出し入口 (dual-sink)。
+/// アプリ共通のログ書き出し入口。ログの入口は常に `AppLog` に統一し、callsite は
+/// `Logger(subsystem:category:)` を直接生成しない。2 つのレーンを持つ:
+///
+/// - **line log** (本 struct の `info` / `error` 等、`String` を受ける): 人間が読む
+///   通常ログ。privacy は `category` 単位で **メッセージ全体** に適用。下記 dual-sink。
+/// - **structured / OSLog-native** (`osLogger(for:)` → `Logger`): 補間ごとの privacy
+///   (`\(x, privacy: .private)`) や structured logging が要る callsite 用。`os.Logger`
+///   のみ (stderr ミラーなし)。`osLogger(for:)` の doc 参照。
+///
+/// ## line log の dual-sink
 ///
 /// 1 回の呼び出しで 2 つの sink に出す:
 /// - **`os.Logger` (常時)**: unified logging。リリースビルドでも OS が記録するため
@@ -14,20 +23,24 @@ import OSLog
 ///   `NSLog` ではなく `fputs(stderr)` を使う (NSLog は unified log にも複製され、
 ///   `.private` メッセージが DEBUG で平文複製 + ANSI 混入するため。codex 設計review P1)。
 ///
+/// ## line log の privacy
+///
 /// 「sink ごとの整形 / privacy / 色を 1 箇所に集約し、callsite では毎回判断しない」
-/// のが目的。**privacy は `category` が唯一の決定者** (per-call override を持たない)。
-/// ただしこれは万能な安全網ではなく、**「`.private` カテゴリへ呼び出しごとに `.public` を
-/// 上書きして渡す」一方向を塞ぐだけ**である点に注意 (誤読しやすい):
+/// のが目的。**line log の privacy は `category` が唯一の決定者** (per-call override を
+/// 持たない。`LogCategory.defaultMessagePrivacy`)。ただしこれは万能な安全網ではなく、
+/// **「`.private` カテゴリへ呼び出しごとに `.public` を上書きして渡す」一方向を塞ぐだけ**
+/// である点に注意 (誤読しやすい):
 ///
 /// - `.private` カテゴリは release で **メッセージ全体** が `<private>` に畳まれる
-///   (os.Logger の補間ごとの出し分けは関数境界を越えられないため。`LogPrivacy` 参照)。
-///   静的な文脈ごと秘匿されるので、選択的に残したい診断は `os.Logger` を直接使う。
+///   (os.Logger の補間ごとの出し分けは `String` では関数境界を越えられないため。
+///   `LogPrivacy` 参照)。静的な文脈ごと秘匿されるので、選択的に残したい診断は
+///   structured レーン (`osLogger(for:)`) を使う。
 /// - `.public` カテゴリは **何も秘匿しない**。public カテゴリのメッセージに secret を
 ///   補間すれば release でも平文で残る。category は secret を守る安全網ではない。
 ///
 /// したがって **secret を含みうる文字列は category に関係なく、呼び出し側で sanitize 済みに
-/// してから渡す**こと。フィールド単位で公開/秘匿を出し分けたい callsite は本 facade に
-/// 寄せず `os.Logger` を直接使う。
+/// してから渡す**こと。フィールド単位で公開/秘匿を出し分けたい callsite は line log に
+/// 寄せず `osLogger(for:)` の structured レーンを使う。
 ///
 /// 値型 + immutable で `Sendable`。アプリは composition root で 1 個作って共有する:
 ///
@@ -48,31 +61,42 @@ public struct AppLog: Sendable {
 
     /// - Parameters:
     ///   - subsystem: unified logging の subsystem 識別子。
-    ///   - colorize: DEBUG ミラーの色付け。既定は DEBUG=ON / release=OFF。
+    ///   - colorize: DEBUG ミラーの色付け。既定 (`defaultColorize`) は DEBUG かつ
+    ///     `NO_COLOR` / `CI` / `TERM=dumb` のいずれも無いとき ON、それ以外 OFF。
     ///     `make dev-fg` は tee pipe で stderr が非 TTY になり `isatty` 判定では
-    ///     色が消えるため、TTY 判定ではなく明示フラグで制御する。consumer の
-    ///     composition root が env と連動させたい場合に渡す (例: `NO_COLOR` が
-    ///     セットされていたら false。<https://no-color.org>)。色は `tmp/debug.log`
-    ///     にも tee されるため、ログを grep / CI 解析する場合は false にする。
+    ///     色が消えるため、TTY 判定ではなく明示フラグ + env で制御する。env と無関係に
+    ///     強制したい場合に明示的に渡す。色は `tmp/debug.log` にも tee される。
     public init(subsystem: String, colorize: Bool = AppLog.defaultColorize) {
         self.subsystem = subsystem
         self.colorize = colorize
     }
 
-    /// 既定の色付け方針 (DEBUG=ON / release=OFF)。
+    /// 既定の色付け方針。release は常に OFF。DEBUG は env で自動判定
+    /// (`NO_COLOR` / `CI` / `TERM=dumb` のいずれかがあれば OFF)。
     public static var defaultColorize: Bool {
         #if DEBUG
-        return true
+        return colorizeDefault(environment: ProcessInfo.processInfo.environment)
         #else
         return false
         #endif
     }
 
+    /// DEBUG の色付け既定を env から決める純粋関数 (副作用なし。テスト用に切り出し)。
+    /// `NO_COLOR` (<https://no-color.org>、値の有無で判定) / `CI` / `TERM=dumb` の
+    /// いずれかがあれば false。`tmp/debug.log` を CI / 非対話環境で解析する経路でも
+    /// ANSI が混ざらない。`#if DEBUG` で囲まないのはテストから写像を担保するため。
+    static func colorizeDefault(environment: [String: String]) -> Bool {
+        if environment["NO_COLOR"] != nil { return false }
+        if environment["CI"] != nil { return false }
+        if environment["TERM"] == "dumb" { return false }
+        return true
+    }
+
     // MARK: - Core
 
-    /// 1 メッセージを両 sink に出す。privacy は `category.defaultPrivacy` で決まる。
+    /// 1 メッセージを両 sink に出す (line log)。privacy は `category.defaultMessagePrivacy` で決まる。
     public func log(_ level: LogLevel, _ category: any LogCategory, _ message: String) {
-        emitUnifiedLog(level: level, category: category.categoryName, privacy: category.defaultPrivacy, message: message)
+        emitUnifiedLog(level: level, category: category.categoryName, privacy: category.defaultMessagePrivacy, message: message)
         #if DEBUG
         emitDebugMirror(level: level, category: category.categoryName, message: message)
         #endif
@@ -148,5 +172,35 @@ extension LogLevel {
         case .error:   return .error
         case .fault:   return .fault
         }
+    }
+}
+
+// MARK: - Structured / OSLog-native lane
+
+public extension AppLog {
+    /// structured / OSLog-native レーン。category 規約付きの raw `os.Logger` を返す。
+    /// 補間ごとの privacy (`\(x, privacy: .private)`) や OSLog の structured logging が
+    /// 要る callsite はこれを使い、返った logger に**直接**書く:
+    ///
+    /// ```swift
+    /// appLog.osLogger(for: .network).error(
+    ///     "request failed status=\(status, privacy: .public) token=\(token, privacy: .private)"
+    /// )
+    /// ```
+    ///
+    /// subsystem は `self`、category は引数の `LogCategory` 由来なので、callsite が
+    /// `Logger(subsystem:category:)` を手打ちするより subsystem / category 規約が保たれる。
+    ///
+    /// ## なぜ `structured(_:).error(_ message:)` のような薄い wrapper にしないか
+    /// `os.Logger` のログメソッドは引数を **呼び出し箇所の string interpolation literal**
+    /// に限定する。`OSLogMessage` を変数で受けて forward すると
+    /// `error: argument must be a string interpolation` でコンパイルできない (実測
+    /// 2026-06-21。`LogPrivacy` の「関数境界を越えられない」制約の一形態)。よって
+    /// 補間ごとの privacy を保ったまま `Logger` 呼び出しを wrap するのは原理的に不可能で、
+    /// 「raw `Logger` を返す」しか選択肢がない。raw を返すため lib の API 統制 (level 集合 /
+    /// privacy 既定) は効かない点に注意。stderr ミラーも行わない (field 単位 privacy を
+    /// 平文再構成しないため。stderr でも見たい要約は line log を別途出す)。
+    func osLogger(for category: any LogCategory) -> Logger {
+        Logger(subsystem: subsystem, category: category.categoryName)
     }
 }

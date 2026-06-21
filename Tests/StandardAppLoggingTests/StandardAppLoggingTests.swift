@@ -44,11 +44,45 @@ final class StandardAppLoggingTests: XCTestCase {
         XCTAssertEqual(LogLevel.fault.osLogType, .fault)
     }
 
-    // MARK: - Category default privacy
+    // MARK: - Category default privacy (line log 専用)
 
-    func testCategoryDefaultPrivacyIsRespected() {
-        XCTAssertEqual(SampleCategory.secret.defaultPrivacy, .private)
-        XCTAssertEqual(SampleCategory.safe.defaultPrivacy, .public)
+    func testCategoryDefaultMessagePrivacyIsRespected() {
+        XCTAssertEqual(SampleCategory.secret.defaultMessagePrivacy, .private)
+        XCTAssertEqual(SampleCategory.safe.defaultMessagePrivacy, .public)
+    }
+
+    // MARK: - colorize 既定の env 判定
+
+    func testColorizeDefaultIsTrueWithCleanEnv() {
+        XCTAssertTrue(AppLog.colorizeDefault(environment: [:]))
+        XCTAssertTrue(AppLog.colorizeDefault(environment: ["TERM": "xterm-256color"]))
+    }
+
+    func testColorizeDefaultIsFalseWhenNoColorPresent() {
+        // NO_COLOR は値の有無で判定 (空文字でも off)。https://no-color.org
+        XCTAssertFalse(AppLog.colorizeDefault(environment: ["NO_COLOR": ""]))
+        XCTAssertFalse(AppLog.colorizeDefault(environment: ["NO_COLOR": "1"]))
+    }
+
+    func testColorizeDefaultIsFalseInCI() {
+        XCTAssertFalse(AppLog.colorizeDefault(environment: ["CI": "true"]))
+    }
+
+    func testColorizeDefaultIsFalseForDumbTerminal() {
+        XCTAssertFalse(AppLog.colorizeDefault(environment: ["TERM": "dumb"]))
+        // dumb 以外の TERM は色を消さない
+        XCTAssertTrue(AppLog.colorizeDefault(environment: ["TERM": "xterm"]))
+    }
+
+    // MARK: - structured / OSLog-native lane
+
+    func testOSLoggerForReturnsLoggerAndAcceptsPerFieldPrivacy() {
+        // structured レーンは raw Logger を返す。返った Logger に対しては
+        // 補間リテラルが呼び出し箇所に来るので per-field privacy がコンパイルできる
+        // (StructuredAppLog wrapper が不可能だったのと対照的)。実行して crash しないこと。
+        let appLog = AppLog(subsystem: "com.example.tests")
+        let logger = appLog.osLogger(for: SampleCategory.secret)
+        logger.error("status=\(200, privacy: .public) token=\("abc", privacy: .private)")
     }
 
     // MARK: - Level label (色なし sink 向け)
@@ -114,7 +148,7 @@ private enum SampleCategory: String, LogCategory {
     case safe
 
     var categoryName: String { rawValue }
-    var defaultPrivacy: LogPrivacy {
+    var defaultMessagePrivacy: LogPrivacy {
         switch self {
         case .secret: return .private
         case .safe: return .public
