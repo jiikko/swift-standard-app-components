@@ -11,13 +11,21 @@ final class StandardAppLoggingTests: XCTestCase {
 
     // MARK: - Color mapping
 
-    func testErrorAndFaultAreRed() {
-        XCTAssertEqual(LogColor.ansiCode(for: .error), "\u{001B}[31m")
-        XCTAssertEqual(LogColor.ansiCode(for: .fault), "\u{001B}[31m")
+    func testErrorAndFaultAreBrightRed() {
+        XCTAssertEqual(LogColor.ansiCode(for: .error), "\u{001B}[91m")
+        XCTAssertEqual(LogColor.ansiCode(for: .fault), "\u{001B}[91m")
     }
 
-    func testWarningIsYellow() {
-        XCTAssertEqual(LogColor.ansiCode(for: .warning), "\u{001B}[33m")
+    func testWarningIsBrightYellow() {
+        XCTAssertEqual(LogColor.ansiCode(for: .warning), "\u{001B}[93m")
+    }
+
+    func testNoticeIsBrightCyan() {
+        XCTAssertEqual(LogColor.ansiCode(for: .notice), "\u{001B}[96m")
+    }
+
+    func testDebugIsGray() {
+        XCTAssertEqual(LogColor.ansiCode(for: .debug), "\u{001B}[90m")
     }
 
     func testInfoHasNoColor() {
@@ -26,7 +34,7 @@ final class StandardAppLoggingTests: XCTestCase {
 
     func testApplyWrapsWithResetWhenColored() {
         let out = LogColor.apply(level: .error, to: "[net] boom")
-        XCTAssertEqual(out, "\u{001B}[31m[net] boom\u{001B}[0m")
+        XCTAssertEqual(out, "\u{001B}[91m[net] boom\u{001B}[0m")
     }
 
     func testApplyLeavesInfoUnchanged() {
@@ -107,7 +115,7 @@ final class StandardAppLoggingTests: XCTestCase {
         // colorize=true (開発ビュー): level は ANSI 色で表し、本文は [category] message のみ。
         XCTAssertEqual(
             AppLog.mirrorLine(level: .error, category: "network", message: "boom", colorize: true),
-            "\u{001B}[31m[network] boom\u{001B}[0m"
+            "\u{001B}[91m[network] boom\u{001B}[0m"
         )
     }
 
