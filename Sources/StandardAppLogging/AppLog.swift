@@ -59,6 +59,9 @@ public struct AppLog: Sendable {
     /// DEBUG ミラーに ANSI 色を付けるか。
     private let colorize: Bool
 
+    /// `log` の message に前置する scope。末尾には常に空白を含む。
+    private let scopePrefix: String
+
     /// - Parameters:
     ///   - subsystem: unified logging の subsystem 識別子。
     ///   - colorize: DEBUG ミラーの色付け。既定 (`defaultColorize`) は DEBUG かつ
@@ -69,6 +72,13 @@ public struct AppLog: Sendable {
     public init(subsystem: String, colorize: Bool = AppLog.defaultColorize) {
         self.subsystem = subsystem
         self.colorize = colorize
+        self.scopePrefix = ""
+    }
+
+    private init(subsystem: String, colorize: Bool, scopePrefix: String) {
+        self.subsystem = subsystem
+        self.colorize = colorize
+        self.scopePrefix = scopePrefix
     }
 
     /// 既定の色付け方針。release は常に OFF。DEBUG は env で自動判定
@@ -92,13 +102,33 @@ public struct AppLog: Sendable {
         return true
     }
 
+    /// 既存 scope に pairs を追記する純粋関数 (副作用なし。テスト用)。
+    static func scopePrefix(appending pairs: [(String, String)], to prefix: String) -> String {
+        guard !pairs.isEmpty else { return prefix }
+        let joined = pairs.map { "\($0.0)=\($0.1)" }.joined(separator: " ")
+        return prefix + joined + " "
+    }
+
+    /// scope prefix と message を合成する純粋関数 (副作用なし。テスト用)。
+    static func composedMessage(scopePrefix: String, message: String) -> String {
+        scopePrefix + message
+    }
+
+    /// 以後の line log message に key/value scope を前置した copy を返す。
+    public func scoped(_ pairs: [(String, String)]) -> AppLog {
+        let newPrefix = AppLog.scopePrefix(appending: pairs, to: scopePrefix)
+        guard !pairs.isEmpty else { return self }
+        return AppLog(subsystem: subsystem, colorize: colorize, scopePrefix: newPrefix)
+    }
+
     // MARK: - Core
 
     /// 1 メッセージを両 sink に出す (line log)。privacy は `category.defaultMessagePrivacy` で決まる。
     public func log(_ level: LogLevel, _ category: any LogCategory, _ message: String) {
-        emitUnifiedLog(level: level, category: category.categoryName, privacy: category.defaultMessagePrivacy, message: message)
+        let fullMessage = AppLog.composedMessage(scopePrefix: scopePrefix, message: message)
+        emitUnifiedLog(level: level, category: category.categoryName, privacy: category.defaultMessagePrivacy, message: fullMessage)
         #if DEBUG
-        emitDebugMirror(level: level, category: category.categoryName, message: message)
+        emitDebugMirror(level: level, category: category.categoryName, message: fullMessage)
         #endif
     }
 

@@ -82,6 +82,34 @@ final class StandardAppLoggingTests: XCTestCase {
         XCTAssertTrue(AppLog.colorizeDefault(environment: ["TERM": "xterm"]))
     }
 
+    // MARK: - Message scope
+
+    func testScopePrefixFormatsPairs() {
+        XCTAssertEqual(AppLog.scopePrefix(appending: [("profile", "default")], to: ""), "profile=default ")
+        XCTAssertEqual(AppLog.scopePrefix(appending: [("profile", "work"), ("win", "3")], to: ""), "profile=work win=3 ")
+    }
+
+    func testScopePrefixChainsAndEmptyPairsAreNoOp() {
+        let chained = AppLog.scopePrefix(
+            appending: [("b", "2")],
+            to: AppLog.scopePrefix(appending: [("a", "1")], to: "")
+        )
+        XCTAssertEqual(chained, "a=1 b=2 ")
+        XCTAssertEqual(AppLog.scopePrefix(appending: [], to: "a=1 "), "a=1 ")
+    }
+
+    func testComposedMessagePrependsScopeAndPreservesUnscopedMessage() {
+        XCTAssertEqual(AppLog.composedMessage(scopePrefix: "profile=x ", message: "hello"), "profile=x hello")
+        XCTAssertEqual(AppLog.composedMessage(scopePrefix: "", message: "hello"), "hello")
+    }
+
+    func testScopedAppLogComposesMessageForMirrorLine() {
+        let log = AppLog(subsystem: "com.example.tests", colorize: false).scoped([("profile", "x")])
+        let message = AppLog.composedMessage(scopePrefix: "profile=x ", message: "message")
+        XCTAssertEqual(AppLog.mirrorLine(level: .info, category: "app", message: message, colorize: false), "[info]    [app] profile=x message")
+        _ = log
+    }
+
     // MARK: - structured / OSLog-native lane
 
     func testOSLoggerForReturnsLoggerAndAcceptsPerFieldPrivacy() {
