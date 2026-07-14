@@ -7,7 +7,18 @@ public struct SettingsWindow<AppTabs: View>: View {
     private let defaultHeight: CGFloat
     private let appTabs: () -> AppTabs
 
+    /// consumer が外部から選択タブを制御したい場合の binding (例: 「Manage Profiles」から
+    /// Profiles タブを選択状態で開く)。`nil` (デフォルト) なら内部 `@State` で従来どおり
+    /// General 起点に自己管理する (後方互換)。与えると TabView の selection と高さ導出は
+    /// この binding を真実源にし、consumer 側 (UserDefaults/@Observable) に選択が反映・永続する。
+    private let externalSelection: Binding<String>?
+
     @State private var selectedTabId: String
+
+    /// 実効の選択タブ binding。外部 binding があればそれ、なければ内部 `@State`。
+    private var selection: Binding<String> {
+        externalSelection ?? $selectedTabId
+    }
     /// 実描画用の高さ。`targetHeight` (= heights[selectedTabId] ?? defaultHeight) を
     /// `withAnimation` 経由で書き込むことで「アニメーションは frame height だけに限定」
     /// する。`.animation(value:)` をルートに当てると TabView サブツリーまで
@@ -39,18 +50,20 @@ public struct SettingsWindow<AppTabs: View>: View {
         width: CGFloat? = nil,
         heights: [String: CGFloat] = [:],
         defaultHeight: CGFloat = 350,
+        selection: Binding<String>? = nil,
         @ViewBuilder appTabs: @escaping () -> AppTabs = { EmptyView() }
     ) {
         self.general = general
         self.width = width
         self.heights = heights
         self.defaultHeight = defaultHeight
+        self.externalSelection = selection
         self.appTabs = appTabs
-        self._selectedTabId = State(initialValue: Self.generalTabId)
+        self._selectedTabId = State(initialValue: selection?.wrappedValue ?? Self.generalTabId)
     }
 
     public var body: some View {
-        TabView(selection: $selectedTabId) {
+        TabView(selection: selection) {
             GeneralTabContent(contract: general)
                 .tag(Self.generalTabId)
                 .tabItem {
@@ -99,7 +112,7 @@ public struct SettingsWindow<AppTabs: View>: View {
     /// 経由で animatedHeight に伝搬し、frame height のみアニメーションする)。
     private var targetHeight: CGFloat {
         Self.resolveTargetHeight(
-            selectedTabId: selectedTabId,
+            selectedTabId: selection.wrappedValue,
             heights: heights,
             defaultHeight: defaultHeight
         )
