@@ -89,6 +89,43 @@ final class StandardAppLoggingTests: XCTestCase {
         XCTAssertEqual(AppLog.scopePrefix(appending: [("profile", "work"), ("win", "3")], to: ""), "profile=work win=3 ")
     }
 
+    // MARK: - Redundant category prefix detection
+
+    // `log(_:_:_:)` の assert が使う判定。DEBUG ミラーは `[category] message` を組むので、
+    // 呼び出し側が同じ prefix を付けると `[cache] [cache] …` と二重になる。実際に複数の
+    // callsite がこれを踏んだので判定を pin する。
+
+    func testDetectsPrefixIdenticalToCategory() {
+        XCTAssertTrue(
+            AppLog.hasRedundantCategoryPrefix(message: "[cache] cleared 3 entries", category: "cache")
+        )
+    }
+
+    func testAllowsLabelDifferentFromCategory() {
+        // `[oauth-router]` (category は dropbox-oauth) のように category より細かい /
+        // 別軸のラベルを前置する用途は意図的なので通す。
+        XCTAssertFalse(
+            AppLog.hasRedundantCategoryPrefix(message: "[oauth-router] open url", category: "dropbox-oauth")
+        )
+        XCTAssertFalse(
+            AppLog.hasRedundantCategoryPrefix(message: "[mem] footprint=12MB", category: "memory")
+        )
+    }
+
+    func testAllowsPrefixFreeMessage() {
+        XCTAssertFalse(
+            AppLog.hasRedundantCategoryPrefix(message: "cleared 3 entries", category: "cache")
+        )
+    }
+
+    func testIgnoresCategoryNameAppearingMidMessage() {
+        // 先頭以外の `[cache]` は二重表示にならないので検出しない
+        // (本文が偶然その語を含むケースを誤検出させない)。
+        XCTAssertFalse(
+            AppLog.hasRedundantCategoryPrefix(message: "cleared [cache] entries", category: "cache")
+        )
+    }
+
     func testScopePrefixChainsAndEmptyPairsAreNoOp() {
         let chained = AppLog.scopePrefix(
             appending: [("b", "2")],

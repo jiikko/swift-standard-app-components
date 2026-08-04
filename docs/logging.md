@@ -172,6 +172,24 @@ line log の `LogLevel` → `OSLogType` 写像。`os.Logger` には `notice`/`wa
 
 本文は常に `[category] message`。level の見せ方は `colorize` で 2 通りに分かれる。
 
+> ⚠️ **message に `[category]` を自前で前置しないこと。**
+> 上のとおり `[category]` は facade が付けるので、呼び出し側でも付けると
+> `[cache] [cache] cleared 3 entries` と二重になる。
+>
+> ```swift
+> appLog.info(MyCategory.cache, "[cache] cleared 3 entries")  // ❌ 二重になる
+> appLog.info(MyCategory.cache, "cleared 3 entries")          // ✅
+> ```
+>
+> `[category]` は facade が付けるので、**prefix を外しても `[cache]` での grep は効く**。
+>
+> DEBUG では `log(_:_:_:)` の `assert` が検出する (判定は
+> `AppLog.hasRedundantCategoryPrefix(message:category:)`)。検出するのは
+> **category 名と完全一致する先頭 prefix だけ**で、`[oauth-router]` (category は
+> `dropbox-oauth`) や `[mem]` (category は `memory`) のように **category より細かい /
+> 別軸のラベル**を前置する用途は意図的なものとして通る。Release ビルドでは `assert` が
+> 除去されるため実行時コストはない。
+
 ### `colorize: true` (DEBUG の既定 / 開発ビュー)
 
 本文をレベル別 ANSI 色で包む。level は **色** で表す (本文に level テキストは足さない)。

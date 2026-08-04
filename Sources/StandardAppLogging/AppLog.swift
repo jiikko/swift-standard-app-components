@@ -42,6 +42,21 @@ import OSLog
 /// してから渡す**こと。フィールド単位で公開/秘匿を出し分けたい callsite は line log に
 /// 寄せず `osLogger(for:)` の structured レーンを使う。
 ///
+/// ## message に `[category]` を自前で前置しない
+///
+/// stderr ミラーは `[category] message` の形で組む (`mirrorLine`) ので、呼び出し側でも
+/// 同じ prefix を付けると `[cache] [cache] …` と二重になる。prefix を外しても
+/// **`[cache]` での grep は facade 側の prefix で効く**。
+///
+/// ```swift
+/// appLog.info(MyCategory.cache, "[cache] cleared 3 entries")  // ❌ 二重表示
+/// appLog.info(MyCategory.cache, "cleared 3 entries")          // ✅
+/// ```
+///
+/// DEBUG では `log(_:_:_:)` の `assert` が検出する。検出は **category 名と完全一致する
+/// 先頭 prefix だけ**で、`[oauth-router]` (category は `dropbox-oauth`) のような
+/// **より細かい / 別軸のラベル**は意図的用途として通す。
+///
 /// 値型 + immutable で `Sendable`。アプリは composition root で 1 個作って共有する:
 ///
 /// ```swift
@@ -114,6 +129,19 @@ public struct AppLog: Sendable {
         scopePrefix + message
     }
 
+    /// message が **その category 名と完全一致する** prefix を自前で持っているか
+    /// (= DEBUG ミラーで `[cache] [cache] …` と二重になる状態)。
+    ///
+    /// `log(_:_:_:)` の `assert` から呼ぶ。**完全一致だけを検出する**のが要点で、
+    /// `[oauth-router]` (category は `dropbox-oauth`) や `[mem]` (category は `memory`) の
+    /// ように **category より細かい / 別軸のラベル**を前置する用途は意図的なので通す。
+    ///
+    /// 判定は「先頭が `[<category>]`」のみ。文中に出てくる `[category]` は対象外
+    /// (メッセージ本文が偶然その語を含むケースを誤検出しないため)。
+    static func hasRedundantCategoryPrefix(message: String, category: String) -> Bool {
+        message.hasPrefix("[\(category)]")
+    }
+
     /// 以後の line log message に key/value scope を前置した copy を返す。
     public func scoped(_ pairs: [(String, String)]) -> AppLog {
         let newPrefix = AppLog.scopePrefix(appending: pairs, to: scopePrefix)
@@ -124,7 +152,17 @@ public struct AppLog: Sendable {
     // MARK: - Core
 
     /// 1 メッセージを両 sink に出す (line log)。privacy は `category.defaultMessagePrivacy` で決まる。
+    ///
+    /// ⚠️ **message に `[category]` を自前で前置しないこと**: DEBUG ミラーは `mirrorLine` が
+    /// `[category] message` を組むため、呼び出し側でも付けると `[cache] [cache] …` と
+    /// 二重になる。下の `assert` が DEBUG で検出する (`hasRedundantCategoryPrefix` 参照)。
     public func log(_ level: LogLevel, _ category: any LogCategory, _ message: String) {
+        assert(
+            !AppLog.hasRedundantCategoryPrefix(message: message, category: category.categoryName),
+            "log message に category prefix \"[\(category.categoryName)]\" を自前で付けている。"
+                + "DEBUG ミラーが [category] message を組むため二重表示になる。prefix を外すこと"
+                + " (category と異なるラベル、例 [oauth-router] は意図的用途として許可)。"
+        )
         let fullMessage = AppLog.composedMessage(scopePrefix: scopePrefix, message: message)
         emitUnifiedLog(level: level, category: category.categoryName, privacy: category.defaultMessagePrivacy, message: fullMessage)
         #if DEBUG
