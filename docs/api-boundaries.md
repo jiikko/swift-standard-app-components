@@ -1,6 +1,6 @@
 # API 境界
 
-このドキュメントは、公開 API ごとに **StandardAppComponents が提供する範囲** と **consumer アプリが実装する範囲** を明確にするためのもの。
+このドキュメントは、`swift-standard-app-components` package の公開 API ごとに **lib が提供する範囲** と **consumer アプリが実装する範囲** を明確にするためのもの。
 
 基本方針は次の通り。
 
@@ -11,7 +11,22 @@
 | 小さな UI primitive | 共通ラベルを持ち、アプリ lifecycle を知らなくてよい。例: `MenuBarVisibilityToggle` | menu、icon、click handler、status item 生成、文言設計を持つ |
 | 値型 | 複数アプリで完全に同形の値。例: `StandardAppearanceMode` | 永続化 migration や業務意味を持つ |
 
-特定アプリの window open、document 管理、error logging、relaunch、menu 構築を知る必要が出た API は、この package ではなく consumer 側に置く。
+特定アプリの window open、document 管理、ログ本文・level・記録タイミング、relaunch、menu 構築を知る必要が出た API は、この package ではなく consumer 側に置く。ロギングの共通基盤は例外ではなく、下記のとおり `StandardAppLogging` が提供する。
+
+## ロギング (`StandardAppLogging`)
+
+ロギングの責務境界は **基盤 = lib / category 定義とログ内容 = consumer**。`StandardAppLogging` は UI product とは独立して、ログの入口と subsystem / category の規約を提供する。consumer のドメインや失敗処理は知らない。
+
+| API / レーン | lib が提供するもの | consumer が実装するもの |
+|---|---|---|
+| `AppLog` | subsystem を共有するログ入口。line log の unified log + DEBUG stderr ミラーと、category 規約付き `os.Logger` を返す `osLogger(for:)` | composition root でアプリにつき 1 個生成して DI する。callsite 生成や service locator 経由の取得は行わない。subsystem 文字列を決める |
+| `LogCategory` / `LogLevel` / `LogPrivacy` | category と line log の level / メッセージ単位 privacy を表す契約 | サブシステム領域ごとに 1 case の category enum を定義する。privacy の違いだけで同じ領域を分割せず、ログ本文・level・記録タイミングを決める |
+| line log (`debug` / `info` / `notice` / `warning` / `error` / `fault`) | category 単位の privacy でメッセージ全体を unified log へ送り、DEBUG では stderr にもミラーする | 開発時の foreground 実行で見たい `.debug` を含む、人間が読む通常ログに使う。secret を含みうる値は sanitize して渡す |
+| structured / OSLog-native (`osLogger(for:)`) | `AppLog` と `LogCategory` 由来の subsystem / category を持つ raw `os.Logger`。DEBUG stderr ミラーは行わない | 補間ごとに `privacy:` を指定する。release で固定文言を読める状態にしつつ動的フィールドを秘匿する失敗ログに使い、開発用 trace には使わない |
+
+line log の `.warning` は unified logging では `.error` に写像されるため、リトライ後に成功しうる正常フローを `.warning` にしない。また現在の公開 API には出力の記録・抑止 seam がないため、consumer の unit test からログ本文・level・回数を直接 assert する用途はサポートしない。
+
+各 sink、privacy、level 写像の詳細は [`logging.md`](logging.md) を参照する。
 
 ## Settings Window
 
