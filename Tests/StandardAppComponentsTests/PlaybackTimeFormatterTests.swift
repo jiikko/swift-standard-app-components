@@ -46,4 +46,75 @@ final class PlaybackTimeFormatterTests: XCTestCase {
         XCTAssertEqual(PlaybackTimeFormatter.format(seconds: -5), "0:00")
         XCTAssertEqual(PlaybackTimeFormatter.format(milliseconds: -1), "0:00")
     }
+
+    // MARK: - Style (分ゼロ埋め)
+
+    func testPaddedStyleZeroPadsMinutes() {
+        let padded = PlaybackTimeFormatter.Style(padsMinutesToTwoDigits: true)
+        XCTAssertEqual(PlaybackTimeFormatter.format(seconds: 5, style: padded), "00:05")
+        XCTAssertEqual(PlaybackTimeFormatter.format(seconds: 65, style: padded), "01:05")
+        // 時間表示の桁は style に依らず共通 (時のみ非ゼロ埋め)
+        XCTAssertEqual(PlaybackTimeFormatter.format(seconds: 3_600, style: padded), "1:00:00")
+    }
+
+    // MARK: - playbackTime (桁は totalDuration で固定)
+
+    private let padded = PlaybackTimeFormatter.Style(padsMinutesToTwoDigits: true)
+
+    func testPlaybackTimeDigitsFollowTotalDuration() {
+        XCTAssertEqual(PlaybackTimeFormatter.playbackTime(0, totalDuration: 0, style: padded), "00:00")
+        XCTAssertEqual(PlaybackTimeFormatter.playbackTime(3_599, totalDuration: 3_599, style: padded), "59:59")
+        XCTAssertEqual(PlaybackTimeFormatter.playbackTime(3_600, totalDuration: 3_600, style: padded), "1:00:00")
+        // 経過 5 秒でも総尺 2 時間なら H:MM:SS 桁 (再生中に幅が揺れない)
+        XCTAssertEqual(PlaybackTimeFormatter.playbackTime(5, totalDuration: 7_200, style: padded), "0:00:05")
+        // 総尺不明 (nil / 非有限) は経過時刻自身で桁を決める
+        XCTAssertEqual(PlaybackTimeFormatter.playbackTime(5, totalDuration: nil, style: padded), "00:05")
+        XCTAssertEqual(PlaybackTimeFormatter.playbackTime(3_660, totalDuration: .infinity, style: padded), "1:01:00")
+    }
+
+    func testPlaybackTimeInvalidElapsedFallsBackToZero() {
+        XCTAssertEqual(PlaybackTimeFormatter.playbackTime(nil, totalDuration: 120, style: padded), "00:00")
+        XCTAssertEqual(PlaybackTimeFormatter.playbackTime(-1, totalDuration: 120, style: padded), "00:00")
+        XCTAssertEqual(PlaybackTimeFormatter.playbackTime(.nan, totalDuration: 120, style: padded), "00:00")
+        XCTAssertEqual(PlaybackTimeFormatter.playbackTime(.infinity, totalDuration: 120, style: padded), "00:00")
+    }
+
+    func testPlaybackTimeHugeFiniteValueDoesNotTrap() {
+        // Int(Double) は Int.max 近傍 (2^63) で fatalError する。clamp が無いと
+        // このテストはプロセスごと落ちる (= 変異検証を兼ねる)。
+        _ = PlaybackTimeFormatter.playbackTime(1e20, totalDuration: 1e20, style: padded)
+        _ = PlaybackTimeFormatter.remainingPlaybackTime(currentTime: 0, totalDuration: 1e20, style: padded)
+        XCTAssertTrue(
+            PlaybackTimeFormatter.playbackTime(TimeInterval(Int64.max), totalDuration: nil, style: padded)
+                .hasSuffix(":07")
+        )
+    }
+
+    func testPlaybackTimeRoundsSeconds() {
+        XCTAssertEqual(PlaybackTimeFormatter.playbackTime(65.4, totalDuration: 120, style: padded), "01:05")
+        XCTAssertEqual(PlaybackTimeFormatter.playbackTime(65.5, totalDuration: 120, style: padded), "01:06")
+    }
+
+    // MARK: - remainingPlaybackTime
+
+    func testRemainingTimeIsClampedAndPrefixed() {
+        XCTAssertEqual(
+            PlaybackTimeFormatter.remainingPlaybackTime(currentTime: 65, totalDuration: 125, style: padded),
+            "-01:00"
+        )
+        XCTAssertEqual(
+            PlaybackTimeFormatter.remainingPlaybackTime(currentTime: 0, totalDuration: 7_325, style: padded),
+            "-2:02:05"
+        )
+        // 丸め誤差等で current > duration でも "-00:00" 止まり
+        XCTAssertEqual(
+            PlaybackTimeFormatter.remainingPlaybackTime(currentTime: 126, totalDuration: 125, style: padded),
+            "-00:00"
+        )
+        // duration 不明は "-00:00" (表示上の安全側)
+        XCTAssertEqual(
+            PlaybackTimeFormatter.remainingPlaybackTime(currentTime: 10, totalDuration: nil, style: padded),
+            "-00:00"
+        )
+    }
 }
