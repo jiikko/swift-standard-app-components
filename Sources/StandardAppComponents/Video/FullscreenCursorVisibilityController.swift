@@ -30,7 +30,7 @@ public protocol CursorEventMonitorInstalling: AnyObject {
 @MainActor
 public final class SystemCursorEventMonitor: CursorEventMonitorInstalling {
     // 既定引数 (非隔離文脈) から生成できるよう nonisolated にする。stored state を持たない。
-    public nonisolated init() {}
+    nonisolated public init() {}
 
     public func installMouseMovementMonitor(handler: @escaping () -> Void) -> Any? {
         // ドラッグ中の動きでも復帰させるため、移動系イベントを広めに監視する。
@@ -71,7 +71,7 @@ public final class FullscreenCursorVisibilityController {
     private var isHidden = false
     // deinit (非隔離) から契約違反 assert のために read するので nonisolated(unsafe)。
     // 書き込みは全て MainActor 上 (start/stop) に限定されている。
-    private nonisolated(unsafe) var isRunning = false
+    nonisolated(unsafe) private var isRunning = false
 
     /// start/stop のたびに進む世代トークン。Timer 発火は `Task { @MainActor }` を
     /// 1 hop 挟むため、`stop()` → `start()` の再起動が hop の間に入ると
