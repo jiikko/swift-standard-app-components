@@ -4,7 +4,7 @@ SwiftUI **macOS アプリ専用** の Personal SPM。複数の macOS アプリ�
 
 ## このパッケージの位置づけ
 
-- 複数 macOS アプリで同じ形になる薄い定型処理 (Settings ウィンドウ枠 / 表示言語切替 / ログイン時起動 / メニューバー表示 / ウィンドウ挙動 / 外観適用 / Toast / 確認ダイアログ / ブロッキング進捗 / ロギング) を集約する
+- 複数 macOS アプリで同じ形になる薄い定型処理 (Settings ウィンドウ枠 / 表示言語切替 / ログイン時起動 / メニューバー表示 / ウィンドウ挙動 / 外観適用 / Toast / 確認ダイアログ / ブロッキング進捗 / 動画再生補助 / ロギング) を集約する
 - **汎用デザインシステムではない** (デザイントークン / 共通ボタン / 空状態などの広い UI kit は提供しない)
 - アプリ固有の状態管理・永続化・文言・メニュー構成・ウィンドウルーティング・業務ロジックは consumer アプリ側に残す
 
@@ -158,6 +158,7 @@ UI 非依存のロギング product。**ログの入口と subsystem / category 
 | ウィンドウ / 外観 | `WindowBackgroundView`, `View.autoSaveWindowFrame(name:)`, `StandardAppearanceMode`, `View.applyAppAppearance(_:)` |
 | view-local helper | `DoubleClickDetector` (即時 single + ダブルクリック起動を両立。位置 / id の 2 モード) |
 | ローカライズ検証 | `StandardAppComponentsLocalization.validateRequiredKeys()` |
+| 動画再生補助 | `PlaybackTimeFormatter` (時刻整形の正本。`Style` で分ゼロ埋めを選択、`playbackTime(_:totalDuration:style:)` は総尺で桁固定 + 不正入力 sanitize)、`FullscreenCursorVisibilityController` / `CursorActuator` (マウス静止でカーソル自動非表示。解放前に `stop()` 必須) |
 | ロギング (別 product) | `AppLog` (line log), `AppLog.osLogger(for:)` (structured), `LogCategory`, `LogLevel`, `LogPrivacy` |
 
 ## ドキュメント
