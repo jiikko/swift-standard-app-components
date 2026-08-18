@@ -19,7 +19,9 @@ public enum PlaybackTimeFormatter {
 
     // MARK: - 整数秒入口 (桁は値自身で決める)
 
-    /// ミリ秒を整形する (切り捨て)。負値は 0 に clamp。
+    /// ミリ秒を整形する (**切り捨て**。`playbackTime` 系の四捨五入とは丸め方向が
+    /// 異なるので、同じ値を両入口に渡すと 1 秒ズレうる — 入口を混ぜないこと)。
+    /// 負値は 0 に clamp。
     public static func format(milliseconds: Int, style: Style = Style()) -> String {
         format(seconds: max(0, milliseconds / 1_000), style: style)
     }

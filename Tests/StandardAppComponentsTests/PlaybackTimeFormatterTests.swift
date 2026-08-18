@@ -38,6 +38,8 @@ final class PlaybackTimeFormatterTests: XCTestCase {
     func testMillisecondsTruncatesTowardZero() {
         XCTAssertEqual(PlaybackTimeFormatter.format(milliseconds: 999), "0:00")
         XCTAssertEqual(PlaybackTimeFormatter.format(milliseconds: 61_000), "1:01")
+        // 整数除算 (-1500/1000 = -1) 後の負値も clamp される
+        XCTAssertEqual(PlaybackTimeFormatter.format(milliseconds: -1_500), "0:00")
     }
 
     // MARK: - 負値は 0 に clamp
@@ -70,6 +72,8 @@ final class PlaybackTimeFormatterTests: XCTestCase {
         // 総尺不明 (nil / 非有限) は経過時刻自身で桁を決める
         XCTAssertEqual(PlaybackTimeFormatter.playbackTime(5, totalDuration: nil, style: padded), "00:05")
         XCTAssertEqual(PlaybackTimeFormatter.playbackTime(3_660, totalDuration: .infinity, style: padded), "1:01:00")
+        // 総尺メタデータが実尺より短い動画 (VFR / 壊れた moov): 経過時刻側でも時間表示に切り替わる
+        XCTAssertEqual(PlaybackTimeFormatter.playbackTime(3_700, totalDuration: 120, style: padded), "1:01:40")
     }
 
     func testPlaybackTimeInvalidElapsedFallsBackToZero() {
@@ -77,6 +81,18 @@ final class PlaybackTimeFormatterTests: XCTestCase {
         XCTAssertEqual(PlaybackTimeFormatter.playbackTime(-1, totalDuration: 120, style: padded), "00:00")
         XCTAssertEqual(PlaybackTimeFormatter.playbackTime(.nan, totalDuration: 120, style: padded), "00:00")
         XCTAssertEqual(PlaybackTimeFormatter.playbackTime(.infinity, totalDuration: 120, style: padded), "00:00")
+    }
+
+    func testRemainingTimeInvalidCurrentTimeFallsBackToFullDuration() {
+        // 不明な現在時刻は 0 に倒す = 残り時間は全尺
+        XCTAssertEqual(
+            PlaybackTimeFormatter.remainingPlaybackTime(currentTime: .nan, totalDuration: 125, style: padded),
+            "-02:05"
+        )
+        XCTAssertEqual(
+            PlaybackTimeFormatter.remainingPlaybackTime(currentTime: nil, totalDuration: 125, style: padded),
+            "-02:05"
+        )
     }
 
     func testPlaybackTimeHugeFiniteValueDoesNotTrap() {
@@ -115,6 +131,11 @@ final class PlaybackTimeFormatterTests: XCTestCase {
         XCTAssertEqual(
             PlaybackTimeFormatter.remainingPlaybackTime(currentTime: 10, totalDuration: nil, style: padded),
             "-00:00"
+        )
+        // 桁は残量ではなく総尺で固定する (カウントダウン中に表示幅が縮まない)
+        XCTAssertEqual(
+            PlaybackTimeFormatter.remainingPlaybackTime(currentTime: 100, totalDuration: 3_650, style: padded),
+            "-0:59:10"
         )
     }
 }
