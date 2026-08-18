@@ -229,6 +229,30 @@ final class FullscreenCursorVisibilityTests: XCTestCase {
         XCTAssertEqual(actuator.hideCount, 0, "停止後に旧世代の idle 判定が発火しても隠さない")
     }
 
+    // MARK: - 停止後 / 開始前の入力
+
+    func test_stop後にmonitorのhandlerが残発火しても何もしない() {
+        let (sut, actuator, monitor) = makeSUT()
+
+        sut.start(window: makeWindow())
+        sut.hideForIdle(ifGeneration: sut.generationForTesting)
+        sut.stop()
+
+        monitor.lastHandler?()
+
+        XCTAssertEqual(actuator.hideCount, actuator.unhideCount, "停止後の残発火で対称性が崩れない")
+        XCTAssertEqual(actuator.unhideCount, 1, "停止後の残発火で追加の unhide が走らない")
+    }
+
+    func test_start前のnotifyMouseMovedは何もしない() {
+        let (sut, actuator, _) = makeSUT()
+
+        sut.notifyMouseMoved()
+
+        XCTAssertEqual(actuator.hideCount, 0)
+        XCTAssertEqual(actuator.unhideCount, 0)
+    }
+
     // MARK: - 実時間経路 (Timer -> Task hop の配線を 1 本だけ実測する)
 
     func test_実時間でidleTimeout経過後にhideされる() {

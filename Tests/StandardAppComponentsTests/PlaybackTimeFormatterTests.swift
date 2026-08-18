@@ -106,6 +106,26 @@ final class PlaybackTimeFormatterTests: XCTestCase {
         )
     }
 
+    func testPlaybackTimeDefaultStyleIsNotPadded() {
+        // style 省略時の既定は "M:SS" (format(seconds:) の既定と同じ)。
+        // 既定を padded に変える変更はここで red になる。
+        XCTAssertEqual(PlaybackTimeFormatter.playbackTime(65, totalDuration: 120), "1:05")
+        XCTAssertEqual(
+            PlaybackTimeFormatter.remainingPlaybackTime(currentTime: 65, totalDuration: 125),
+            "-1:00"
+        )
+    }
+
+    func testPlaybackTimeHourBoundaries() {
+        XCTAssertEqual(PlaybackTimeFormatter.playbackTime(59, totalDuration: 59, style: padded), "00:59")
+        XCTAssertEqual(PlaybackTimeFormatter.playbackTime(60, totalDuration: 60, style: padded), "01:00")
+        // 2 桁時でも時はゼロ埋めしない
+        XCTAssertEqual(
+            PlaybackTimeFormatter.playbackTime(86_399, totalDuration: 86_399, style: padded),
+            "23:59:59"
+        )
+    }
+
     func testPlaybackTimeRoundsSeconds() {
         XCTAssertEqual(PlaybackTimeFormatter.playbackTime(65.4, totalDuration: 120, style: padded), "01:05")
         XCTAssertEqual(PlaybackTimeFormatter.playbackTime(65.5, totalDuration: 120, style: padded), "01:06")

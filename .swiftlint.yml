@@ -173,6 +173,30 @@ custom_rules:
     message: "lib 内の Text にハードコード文字列を渡さない。`Text(\"X\", bundle: .module)` で lib catalog 経由にする (consumer 側 main bundle 解決のミスを防ぐ)。非ローカライズ literal は `Text(verbatim: \"X\")`。"
     severity: error
 
+  # 再生時刻の自前整形を禁止する。
+  #
+  # "%d:%02d" 系の手書き format は「90 分を \"90:00\" と表示する」(1 時間超で
+  # 時:分:秒 に切り替わらない) バグの温床。時刻ラベルは PlaybackTimeFormatter を
+  # 経由する (桁ルールと不正入力 sanitize の正本)。
+  playback_time_no_manual_format:
+    name: "manual playback time formatting"
+    regex: 'String\(format:\s*"[^"]*%0?2?d:%02d'
+    message: "再生時刻を自前 format しない。PlaybackTimeFormatter (桁ルールと sanitize の正本) を使う。"
+    severity: error
+    excluded: '.*/PlaybackTimeFormatter\.swift'
+
+  # NSCursor.hide/unhide の直接呼び出しを禁止する。
+  #
+  # NSCursor はリファレンスカウント方式で、呼び出し回数の対称性が崩れると
+  # カーソルが恒久的に消える/戻らない。対称性は FullscreenCursorVisibilityController
+  # (stop() で必ず復帰する不変条件 + テスト) が担保するため、入口をそこに限定する。
+  nscursor_direct_use:
+    name: "direct NSCursor hide/unhide"
+    regex: 'NSCursor\.(hide|unhide)\('
+    message: "NSCursor.hide/unhide を直接呼ばない。対称性を担保する FullscreenCursorVisibilityController / CursorActuator 経由にする。"
+    severity: error
+    excluded: '.*/FullscreenCursorVisibilityController\.swift'
+
 # === 対象ファイル ===
 
 included:
