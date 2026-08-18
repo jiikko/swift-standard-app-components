@@ -141,6 +141,15 @@ Toast は軽い完了通知、情報通知、復旧可能なエラー通知に�
 
 非ゴール: consumer アプリ自身の string catalog は consumer 側の責務。
 
+## 動画再生補助
+
+| API | lib が提供するもの | consumer が実装するもの |
+|---|---|---|
+| `PlaybackTimeFormatter` | 再生時刻の表示整形 (1 時間超で 時:分:秒 に切替)。自前整形による "90:00" 系の再発防止の正本 | どのラベルに使うか。ロケール固有の整形が要る場合の別実装 |
+| `FullscreenCursorVisibilityController` / `CursorActuator` | フルスクリーン中のカーソル自動非表示 (マウス静止で hide / 移動で即時復帰 / stop で必ず unhide / start・stop 冪等)。イベント監視は観測のみでイベントを消費しない | フルスクリーン enter/exit 経路での `start(window:)` / `stop()` 呼び出し。**解放前に必ず `stop()` を呼ぶ** (deinit での自動クリーンアップは行わない)。idleTimeout の選択 |
+
+非ゴール: フルスクリーン window の生成・所有、シークバー等の transport UI、キー入力の routing は提供しない (window ownership / key routing は consumer 責務。下記「提供しない API」と同判断。2026-08-18 の切り出し検討で、フルスクリーン window controller / seek bar / input router の lib 化は「consumer 1 つの投機的汎用化 + キー消費設計の配布」になるため見送った。再評価 trigger: 同じ 0..1 + pendingSeek モデルの consumer が 3 つ目に現れたとき)。
+
 ## Misc
 
 | API | lib が提供するもの | consumer が実装するもの |
