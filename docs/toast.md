@@ -28,6 +28,7 @@
 | `ToastView` | 1 件の toast を描画する pure UI。アイコン + タイトル + メッセージ + (任意) アクションボタン + 閉じるボタン |
 | `ToastContainer` | `ToastManaging` を観測し、画面右下に `ToastView` を出すコンテナ。フェード / スライドのアニメーションを内蔵 |
 | `View.standardToastContainer(_:)` | ルート View に **1 回だけ** 当てる modifier。container を ZStack で重ねて toast manager を環境にも乗せる |
+| `onToastFrameChange:` (container / modifier の省略可能な引数) | 吹き出しの矩形 (container の左上が原点、右と下の余白は含まない。消えたら nil) を知らせる。AppKit の view に container を全面で重ね、吹き出しの上だけクリックを受けて他を下の view へ通すときに使う (`NSHostingView` は透明な部分のクリックも受けるため) |
 
 ## ローカライズ
 

@@ -30,6 +30,10 @@ public struct ToastContainerView: View {
     // existential で受ける。Generic 型にすると `static let Layout` が使えなくなる
     // (Swift "static stored properties not supported in generic types") ため。
     private let manager: any ToastManaging
+    private let onToastFrameChange: ((CGRect?) -> Void)?
+
+    /// `onToastFrameChange` が報告する矩形の座標空間 (この container の左上が原点)
+    private static let coordinateSpaceName = "StandardAppComponents.ToastContainer"
 
     /// - Parameter manager: 現在トースト・dismiss を駆動するマネージャー。
     ///   **Observation framework (`@Observable`) 前提**。`currentToast` の読み取りは
@@ -37,8 +41,14 @@ public struct ToastContainerView: View {
     ///   従来の `ObservableObject` (`@Published`) はこの container では更新が
     ///   伝搬しない (`@ObservedObject` を持たないため) 点に注意。consumer が
     ///   独自実装する場合も `@Observable` を採用すること。
-    public init(manager: any ToastManaging) {
+    ///   - onToastFrameChange: 吹き出しの矩形が変わるたびに呼ぶ (省略可)。座標はこの container の
+    ///     左上が原点で、右と下の余白は含まない。トーストが消えたら nil。AppKit の view に重ねた
+    ///     container が、吹き出しの上だけクリックを受けて他を下へ通すために使う (container は全面を
+    ///     覆うので、吹き出しの位置を知らないと全面のクリックを奪う。screen-share-app issue 853)。
+    ///     退場のフェード中は既に nil になる
+    public init(manager: any ToastManaging, onToastFrameChange: ((CGRect?) -> Void)? = nil) {
         self.manager = manager
+        self.onToastFrameChange = onToastFrameChange
     }
 
     public var body: some View {
@@ -48,6 +58,11 @@ public struct ToastContainerView: View {
             if let toast = manager.currentToast {
                 ToastView(toast: toast) {
                     manager.dismiss()
+                }
+                .onGeometryChange(for: CGRect.self) { proxy in
+                    proxy.frame(in: .named(Self.coordinateSpaceName))
+                } action: { frame in
+                    onToastFrameChange?(frame)
                 }
                 .frame(maxWidth: Layout.maxWidth)
                 .padding(.trailing, Layout.trailingPadding)
@@ -64,6 +79,10 @@ public struct ToastContainerView: View {
             value: manager.currentToast?.id
         )
         .allowsHitTesting(manager.currentToast != nil)
+        .coordinateSpace(name: Self.coordinateSpaceName)
+        .onChange(of: manager.currentToast == nil) { _, isEmpty in
+            if isEmpty { onToastFrameChange?(nil) }
+        }
     }
 
     private var toastTransition: AnyTransition {
@@ -79,10 +98,13 @@ public struct ToastContainerView: View {
 extension View {
     /// 画面右下に標準トースト UI を重ねる。`ToastContainerView` を内部で配置するだけ
     /// の薄い modifier。
-    public func standardToastContainer(_ manager: any ToastManaging) -> some View {
+    /// `onToastFrameChange` は ``ToastContainerView/init(manager:onToastFrameChange:)`` を参照。
+    public func standardToastContainer(
+        _ manager: any ToastManaging, onToastFrameChange: ((CGRect?) -> Void)? = nil
+    ) -> some View {
         ZStack {
             self
-            ToastContainerView(manager: manager)
+            ToastContainerView(manager: manager, onToastFrameChange: onToastFrameChange)
         }
     }
 }
