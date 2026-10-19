@@ -13,24 +13,15 @@ final class StandardAppComponentsTests: XCTestCase {
         StandardAppComponentsLocalization.validateRequiredKeys()
     }
 
-    /// validateRequiredKeys がキー皆無の状態で vacuously pass していないことを担保する。
-    /// xcstrings が bundle に同梱され、parse して中身の key が requiredKeys 全件を含むことを直接確認する。
-    func testLocalizableXCStringsBundlesAllRequiredKeysWithJaTranslation() throws {
-        let url = try XCTUnwrap(
-            Bundle.module.url(forResource: "Localizable", withExtension: "xcstrings"),
-            "Localizable.xcstrings should be bundled in Bundle.module"
-        )
-        let data = try Data(contentsOf: url)
-        let json = try XCTUnwrap(
-            try JSONSerialization.jsonObject(with: data) as? [String: Any]
-        )
-        let strings = try XCTUnwrap(json["strings"] as? [String: [String: Any]])
-
-        for key in StandardAppComponentsLocalization.requiredKeys {
-            let entry = try XCTUnwrap(strings[key], "missing entry: \(key)")
-            let localizations = try XCTUnwrap(entry["localizations"] as? [String: Any])
-            XCTAssertNotNil(localizations["en"], "missing en for \(key)")
-            XCTAssertNotNil(localizations["ja"], "missing ja for \(key)")
-        }
+    /// validateRequiredKeys が、言語の表を欠いた状態で vacuously pass していないことを担保する。
+    /// missingKeys はバンドルにある言語だけを見るので、ja の表がまるごと入らなければ ja は検査されない。
+    /// バンドルの形は toolchain で違う (Swift 6.4 の SwiftPM は .xcstrings を言語ごとの .strings に変換して入れる。issue 006)
+    /// ので、ファイルではなく言語の一覧と missingKeys で見る。
+    func testBundleHasEnAndJaAndEveryRequiredKeyInBoth() throws {
+        let localizations = Set(Bundle.module.localizations)
+        XCTAssertTrue(localizations.contains("en"), "en is not in Bundle.module: \(localizations)")
+        XCTAssertTrue(localizations.contains("ja"), "ja is not in Bundle.module: \(localizations)")
+        let missing = try StandardAppComponentsLocalization.missingKeys(in: StandardAppComponentsLocalization.requiredKeys)
+        XCTAssertTrue(missing.isEmpty, "missing: \(missing)")
     }
 }
