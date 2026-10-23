@@ -13,7 +13,8 @@ public extension View {
     ///
     /// 本モディファイアはこれらを以下で解決する:
     /// 1. `NSApp.appearance` を更新 (新規 NSWindow / explicit appearance を持たない既存 NSWindow に効く)
-    /// 2. 既存の全 `NSWindow.appearance` を明示的に上書き (`.preferredColorScheme` の取りこぼしをカバー)
+    /// 2. 既存の `NSWindow.appearance` を明示的に上書き (`.preferredColorScheme` の取りこぼしをカバー)。
+    ///    メニューバーの status item の window は除く (OS のメニューバーの外観に従わせる。`AppAppearanceWindows`)
     ///
     /// - Parameter scheme: 強制したい `ColorScheme`。`nil` の場合はシステム追従。
     /// - Important: アプリ単位での外観統一を前提とした API。ウィンドウごとに
@@ -36,10 +37,24 @@ private struct AppAppearanceModifier: ViewModifier {
                 // 明示セットされた NSWindow は、preferredColorScheme(nil) では
                 // クリアされない実装挙動がある。NSApp 側だけ nil にしても
                 // window 側に残り続けるので、ここで明示的に揃える。
-                for window in NSApp.windows {
-                    window.appearance = nsAppearance
-                }
+                AppAppearanceWindows.apply(nsAppearance, to: NSApp.windows)
             }
+    }
+}
+
+/// アプリの外観を既存の window に当てる。メニューバーの status item の window (`NSStatusBarWindow`、level は `.statusBar`) は
+/// `NSApp.windows` に入るが、上書きしない。上書きすると status item のボタンがメニューバーではなくアプリの外観で描かれ、
+/// アプリをライトにすると暗いメニューバーの上で template image が黒くなる (`NSApp.appearance` の上書きは status item に効かないことを
+/// macOS 26.7 で実測した)。status item の外観は OS のメニューバーに任せる。
+enum AppAppearanceWindows {
+    static func apply(_ appearance: NSAppearance?, to windows: [NSWindow]) {
+        for window in windows where followsAppAppearance(window) {
+            window.appearance = appearance
+        }
+    }
+
+    static func followsAppAppearance(_ window: NSWindow) -> Bool {
+        window.level != .statusBar
     }
 }
 

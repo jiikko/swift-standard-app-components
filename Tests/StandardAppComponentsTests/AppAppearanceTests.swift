@@ -28,4 +28,32 @@ final class AppAppearanceTests: XCTestCase {
         let appearance = AppAppearanceMapping.nsAppearance(for: nil)
         XCTAssertNil(appearance)
     }
+
+    // MARK: - Windows
+
+    // status item の window (level `.statusBar`) を上書きすると、メニューバーのアイコンがアプリの外観で描かれる。
+    func testApplySkipsStatusBarLevelWindows() {
+        let normal = NSWindow(contentRect: .init(x: 0, y: 0, width: 10, height: 10), styleMask: [.titled], backing: .buffered, defer: true)
+        let statusBar = NSWindow(contentRect: .init(x: 0, y: 0, width: 10, height: 10), styleMask: [.borderless], backing: .buffered, defer: true)
+        statusBar.level = .statusBar
+        let dark = NSAppearance(named: .darkAqua)
+
+        AppAppearanceWindows.apply(dark, to: [normal, statusBar])
+
+        XCTAssertEqual(normal.appearance?.name, .darkAqua)
+        XCTAssertNil(statusBar.appearance)
+    }
+
+    func testApplyNilClearsAppWindowsButLeavesStatusBarWindows() {
+        let normal = NSWindow(contentRect: .init(x: 0, y: 0, width: 10, height: 10), styleMask: [.titled], backing: .buffered, defer: true)
+        normal.appearance = NSAppearance(named: .darkAqua)
+        let statusBar = NSWindow(contentRect: .init(x: 0, y: 0, width: 10, height: 10), styleMask: [.borderless], backing: .buffered, defer: true)
+        statusBar.level = .statusBar
+        statusBar.appearance = NSAppearance(named: .vibrantDark)
+
+        AppAppearanceWindows.apply(nil, to: [normal, statusBar])
+
+        XCTAssertNil(normal.appearance)
+        XCTAssertEqual(statusBar.appearance?.name, .vibrantDark)
+    }
 }
