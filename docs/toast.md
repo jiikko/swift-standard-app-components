@@ -26,7 +26,7 @@
 | API | 役割 |
 |---|---|
 | `ToastView` | 1 件の toast を描画する pure UI。アイコン + タイトル + メッセージ + (任意) アクションボタン + 閉じるボタン |
-| `ToastContainer` | `ToastManaging` を観測し、画面右下に `ToastView` を出すコンテナ。フェード / スライドのアニメーションを内蔵 |
+| `ToastContainer` | `ToastManaging` を観測し、画面右下に `ToastView` を出すコンテナ。フェード / スライドのアニメーションを内蔵。吹き出しにマウスが乗っている間は自動消去を止め (`pauseAutoDismiss(for:)`)、外れたら `duration` を数え直して再開する (`resumeAutoDismiss(for:)`)。🚨 `ToastManaging` を包む proxy / decorator は、この 2 つも包んだ先へ転送する (既定の実装は何もしないので、転送しないとホバーで止まらない) |
 | `View.standardToastContainer(_:)` | ルート View に **1 回だけ** 当てる modifier。container を ZStack で重ねて toast manager を環境にも乗せる |
 | `onToastFrameChange:` (container / modifier の省略可能な引数) | 吹き出しの矩形 (container の左上が原点、右と下の余白は含まない。消えたら nil) を知らせる。AppKit の view に container を全面で重ね、吹き出しの上だけクリックを受けて他を下の view へ通すときに使う (`NSHostingView` は透明な部分のクリックも受けるため) |
 

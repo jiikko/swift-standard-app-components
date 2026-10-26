@@ -58,6 +58,9 @@ public final class ToastManager: ToastManaging {
     /// dismiss 後のキュー処理タスク。
     private var queueProcessingTask: Task<Void, Never>?
 
+    /// 自動消去を止めているトーストの id (ホバー中)。表示中のトーストが替わったら nil に戻す。
+    private var autoDismissPausedToastID: Toast.ID?
+
     // MARK: - Init
 
     public init() {}
@@ -141,6 +144,7 @@ public final class ToastManager: ToastManaging {
     public func dismiss() {
         dismissSwiftTask?.cancel()
         dismissSwiftTask = nil
+        autoDismissPausedToastID = nil
 
         withAnimation(.easeOut(duration: DisplayConstants.dismissAnimationDuration)) {
             currentToast = nil
@@ -162,6 +166,7 @@ public final class ToastManager: ToastManaging {
     public func clearAll() {
         dismissSwiftTask?.cancel()
         dismissSwiftTask = nil
+        autoDismissPausedToastID = nil
         queueProcessingTask?.cancel()
         queueProcessingTask = nil
         queue.removeAll()
@@ -170,6 +175,21 @@ public final class ToastManager: ToastManaging {
         withAnimation {
             currentToast = nil
         }
+    }
+
+    public func pauseAutoDismiss(for id: Toast.ID) {
+        guard currentToast?.id == id else { return }
+        autoDismissPausedToastID = id
+        dismissSwiftTask?.cancel()
+        dismissSwiftTask = nil
+    }
+
+    public func resumeAutoDismiss(for id: Toast.ID) {
+        // 消えた吹き出しの onHover(false) が、次のトーストを止めた後に届くことがある。止めた id と
+        // 違う呼び出しは何もしない (次のトーストの停止を解かない)。
+        guard autoDismissPausedToastID == id, let toast = currentToast, toast.id == id else { return }
+        autoDismissPausedToastID = nil
+        scheduleDismiss(after: toast.duration)
     }
 
     // MARK: - Private Methods

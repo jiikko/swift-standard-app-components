@@ -53,11 +53,28 @@ public protocol ToastManaging: AnyObject, Sendable {
 
     /// 全てのトーストをクリア。
     @MainActor func clearAll()
+
+    /// 表示中のトースト (`id` が `currentToast` と同じとき) の自動消去を止める。
+    /// `ToastContainerView` が、吹き出しにマウスが乗ったときに呼ぶ (長い文を読み切るため)。
+    @MainActor func pauseAutoDismiss(for id: Toast.ID)
+
+    /// `pauseAutoDismiss(for:)` で止めた自動消去を再開する。残り時間ではなく、そのトーストの
+    /// `duration` を数え直す。止めていない・別のトーストに替わったあとの呼び出しは何もしない。
+    @MainActor func resumeAutoDismiss(for id: Toast.ID)
 }
 
 // MARK: - Default Parameter Extensions
 
 extension ToastManaging {
+    /// 既定は何もしない (ホバーで止めない)。後から足した要件なので、既存の conformer をビルドで落とさないための既定。
+    /// 🚨 本物の manager を包む proxy (ログ付きの wrapper など) は、包んだ先へ転送しないとホバーで止まらない。
+    @MainActor
+    public func pauseAutoDismiss(for id: Toast.ID) {}
+
+    /// 既定は何もしない。`pauseAutoDismiss(for:)` を参照。
+    @MainActor
+    public func resumeAutoDismiss(for id: Toast.ID) {}
+
     /// `message` / `duration` 省略可能な便利オーバーロード。
     @MainActor
     public func showSuccess(_ title: LocalizedStringResource, message: ToastText? = nil, duration: TimeInterval = 3.0) {

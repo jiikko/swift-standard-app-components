@@ -59,6 +59,19 @@ public struct ToastContainerView: View {
                 ToastView(toast: toast) {
                     manager.dismiss()
                 }
+                // マウスが乗っている間は自動消去を止める (長い文を読み切るため)
+                .onHover { isHovering in
+                    if isHovering {
+                        manager.pauseAutoDismiss(for: toast.id)
+                    } else {
+                        manager.resumeAutoDismiss(for: toast.id)
+                    }
+                }
+                // 乗せたまま吹き出しが消える (ウィンドウを閉じる等) と onHover(false) が来ないことがあり、止めたまま
+                // 残ると後続のトーストもキューで待ち続ける。消えたら解く (id が違えば何もしないので、次のトーストは動かさない)
+                .onDisappear {
+                    manager.resumeAutoDismiss(for: toast.id)
+                }
                 .onGeometryChange(for: CGRect.self) { proxy in
                     proxy.frame(in: .named(Self.coordinateSpaceName))
                 } action: { frame in

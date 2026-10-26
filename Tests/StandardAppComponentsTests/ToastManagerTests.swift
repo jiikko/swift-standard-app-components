@@ -224,4 +224,66 @@ final class ToastManagerTests: XCTestCase {
         XCTAssertEqual(manager.currentToast?.title, "queued-3")
         manager.clearAll()
     }
+
+    // MARK: - ホバー中の自動消去の停止
+
+    /// 条件が成り立つまで待つ。上限は hang guard で、待ちの長さを合否にしない。
+    private func waitUntil(_ what: String, _ condition: () -> Bool) async throws {
+        for _ in 0..<200 where !condition() {
+            try await Task.sleep(for: .milliseconds(20))
+        }
+        XCTAssertTrue(condition(), what)
+    }
+
+    func testPauseAutoDismissKeepsTheToastPastItsDuration() async throws {
+        let manager = ToastManager()
+        let toast = Toast(style: .error, title: "Long error", duration: 0.1)
+        manager.show(toast)
+        manager.pauseAutoDismiss(for: toast.id)
+
+        // 「消えないこと」の確認なので、待つべき成立条件が無い。duration (0.1) の数倍待つ。
+        try await Task.sleep(for: .seconds(0.4))
+        XCTAssertEqual(manager.currentToast?.id, toast.id)
+        manager.clearAll()
+    }
+
+    func testResumeAutoDismissDismissesAfterTheDurationAgain() async throws {
+        let manager = ToastManager()
+        let toast = Toast(style: .error, title: "Long error", duration: 0.1)
+        manager.show(toast)
+        manager.pauseAutoDismiss(for: toast.id)
+        manager.resumeAutoDismiss(for: toast.id)
+        // resume は消すのではなく、duration を数え直す
+        XCTAssertEqual(manager.currentToast?.id, toast.id)
+
+        try await waitUntil("the toast was not dismissed after resume") { manager.currentToast == nil }
+    }
+
+    func testPauseForAnotherToastDoesNotStopTheCurrentOne() async throws {
+        let manager = ToastManager()
+        manager.show(Toast(style: .info, title: "Current", duration: 0.1))
+        manager.pauseAutoDismiss(for: UUID())
+
+        try await waitUntil("the current toast was not dismissed") { manager.currentToast == nil }
+    }
+
+    func testLateResumeFromThePreviousToastDoesNotUnpauseTheNextOne() async throws {
+        // 閉じた吹き出しの onHover(false) が、次の吹き出しの onHover(true) の後に届く順序を再現する。
+        let manager = ToastManager()
+        let first = Toast(style: .info, title: "First", duration: 10)
+        let second = Toast(style: .info, title: "Second", duration: 0.1)
+        manager.show(first)
+        manager.show(second)
+        manager.pauseAutoDismiss(for: first.id)
+        manager.dismiss()
+        try await waitUntil("the second toast did not appear") { manager.currentToast?.id == second.id }
+
+        manager.pauseAutoDismiss(for: second.id)
+        manager.resumeAutoDismiss(for: first.id)
+
+        // 「消えないこと」の確認なので、待つべき成立条件が無い。duration (0.1) の数倍待つ。
+        try await Task.sleep(for: .seconds(0.4))
+        XCTAssertEqual(manager.currentToast?.id, second.id)
+        manager.clearAll()
+    }
 }
