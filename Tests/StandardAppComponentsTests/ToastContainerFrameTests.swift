@@ -69,4 +69,49 @@ final class ToastContainerFrameTests: XCTestCase {
         let long = try await height(for: "A message long enough to wrap onto a second line in the bubble, and then some more words")
         XCTAssertGreaterThan(long, short)
     }
+
+    /// Stacked toasts are all drawn: two bubbles report a taller frame than one.
+    func testStackedToastsReportATallerFrameThanOne() async throws {
+        let manager = ToastManager(presentation: .stacked(maxVisible: 3))
+        let frames = Frames()
+        let size = CGSize(width: 640, height: 360)
+        let (window, _) = host(manager, frames: frames, size: size)
+        defer { window.close() }
+
+        manager.show(Toast(style: .info, title: "First", duration: 30))
+        try await waitUntil("no frame was reported") { frames.reported.last.flatMap { $0 } != nil }
+        let one = try XCTUnwrap(frames.reported.last.flatMap { $0 })
+
+        manager.show(Toast(style: .info, title: "Second", duration: 30))
+        try await waitUntil("the frame did not grow for the second toast") {
+            (frames.reported.last.flatMap { $0 }?.height ?? 0) > one.height + 20
+        }
+        manager.clearAll()
+        try await waitUntil("no nil after the toasts went") { frames.reported.last.map { $0 == nil } ?? false }
+    }
+
+    /// Replacing a toast by `uniqueKey` keeps its id, and the bubble still shows the new content.
+    func testReplacingByUniqueKeyRedrawsTheBubbleWithTheNewContent() async throws {
+        let manager = ToastManager()
+        let frames = Frames()
+        let size = CGSize(width: 640, height: 360)
+        let (window, _) = host(manager, frames: frames, size: size)
+        defer { window.close() }
+
+        manager.show(Toast(style: .info, title: "Short", duration: 30, uniqueKey: "k"))
+        try await waitUntil("no frame was reported") { frames.reported.last.flatMap { $0 } != nil }
+        let short = try XCTUnwrap(frames.reported.last.flatMap { $0 })
+
+        manager.show(Toast(
+            style: .info,
+            title: "Short",
+            message: "A message long enough to wrap onto a second line in the bubble, and then some more words",
+            duration: 30,
+            uniqueKey: "k"
+        ))
+        try await waitUntil("the bubble was not redrawn with the new content") {
+            (frames.reported.last.flatMap { $0 }?.height ?? 0) > short.height
+        }
+        manager.clearAll()
+    }
 }

@@ -286,4 +286,208 @@ final class ToastManagerTests: XCTestCase {
         XCTAssertEqual(manager.currentToast?.id, second.id)
         manager.clearAll()
     }
+
+    // MARK: - 1 件ずつの待ち (.oneAtATime)
+
+    func testShowDuringTheDelayAfterDismissWaitsUntilTheDelayEnds() async throws {
+        // 消えかけの吹き出しと次の吹き出しを重ねないため、dismiss から processingDelay の間に来た show は待つ。
+        let manager = ToastManager()
+        manager.show(Toast(style: .info, title: "First", duration: 10))
+        manager.dismiss()
+        manager.show(Toast(style: .info, title: "Second", duration: 10))
+        XCTAssertNil(manager.currentToast)
+
+        try await waitUntil("the second toast did not appear after the delay") { manager.currentToast?.title == "Second" }
+        manager.clearAll()
+    }
+
+    // MARK: - 複数を並べる (.stacked)
+
+    func testStackedShowsUpToMaxVisibleAtOnceInOrder() {
+        let manager = ToastManager(presentation: .stacked(maxVisible: 3))
+        for title in ["A", "B", "C"] {
+            manager.show(Toast(style: .info, title: title, duration: 10))
+        }
+        XCTAssertEqual(manager.visibleToasts.map(\.title), ["A", "B", "C"])
+        XCTAssertEqual(manager.currentToast?.title, "C")
+        manager.clearAll()
+    }
+
+    func testStackedOverflowWaitsAndAppearsWhenOneIsDismissed() async throws {
+        let manager = ToastManager(presentation: .stacked(maxVisible: 2))
+        let first = Toast(style: .info, title: "A", duration: 10)
+        manager.show(first)
+        manager.show(Toast(style: .info, title: "B", duration: 10))
+        manager.show(Toast(style: .info, title: "C", duration: 10))
+        XCTAssertEqual(manager.visibleToasts.map(\.title), ["A", "B"])
+
+        manager.dismiss(id: first.id)
+        XCTAssertEqual(manager.visibleToasts.map(\.title), ["B"])
+        try await waitUntil("the queued toast did not appear") { manager.visibleToasts.map(\.title) == ["B", "C"] }
+        manager.clearAll()
+    }
+
+    func testStackedFillsEveryFreeSlotAfterTheDelay() async throws {
+        // 待ちの間に 2 件消えたら、待ちの終わりに 2 件とも出す。
+        let manager = ToastManager(presentation: .stacked(maxVisible: 2))
+        let first = Toast(style: .info, title: "A", duration: 10)
+        let second = Toast(style: .info, title: "B", duration: 10)
+        manager.show(first)
+        manager.show(second)
+        manager.show(Toast(style: .info, title: "C", duration: 10))
+        manager.show(Toast(style: .info, title: "D", duration: 10))
+
+        manager.dismiss(id: first.id)
+        manager.dismiss(id: second.id)
+        try await waitUntil("both free slots were not filled") { manager.visibleToasts.map(\.title) == ["C", "D"] }
+        manager.clearAll()
+    }
+
+    func testStackedAutoDismissRemovesOnlyItsOwnToast() async throws {
+        // 短い方を先に出す。タイマーが currentToast (いちばん新しい Long) を消す形だと落ちる。
+        let manager = ToastManager(presentation: .stacked(maxVisible: 3))
+        manager.show(Toast(style: .info, title: "Short", duration: 0.1))
+        manager.show(Toast(style: .info, title: "Long", duration: 10))
+
+        try await waitUntil("the short toast was not dismissed") { manager.visibleToasts.map(\.title) == ["Long"] }
+        manager.clearAll()
+    }
+
+    func testStackedPauseKeepsOnlyThePausedToast() async throws {
+        let manager = ToastManager(presentation: .stacked(maxVisible: 3))
+        let hovered = Toast(style: .info, title: "Hovered", duration: 0.1)
+        manager.show(hovered)
+        manager.show(Toast(style: .info, title: "Other", duration: 0.1))
+        manager.pauseAutoDismiss(for: hovered.id)
+
+        try await waitUntil("the other toast was not dismissed") { manager.visibleToasts.map(\.title) == ["Hovered"] }
+        manager.clearAll()
+    }
+
+    // MARK: - 置き換え (同じ id / uniqueKey)
+
+    func testSameUniqueKeyReplacesTheVisibleToastAndKeepsItsID() {
+        let manager = ToastManager(presentation: .stacked(maxVisible: 3))
+        let first = Toast(style: .warning, title: "Busy 1", duration: 10, uniqueKey: "busy")
+        manager.show(first)
+        manager.show(Toast(style: .warning, title: "Busy 2", duration: 10, uniqueKey: "busy"))
+
+        XCTAssertEqual(manager.visibleToasts.count, 1)
+        XCTAssertEqual(manager.visibleToasts.first?.title, "Busy 2")
+        XCTAssertEqual(manager.visibleToasts.first?.id, first.id)
+        manager.clearAll()
+    }
+
+    func testSameUniqueKeyReplacesTheQueuedToast() async throws {
+        let manager = ToastManager()
+        let shown = Toast(style: .info, title: "Shown", duration: 10)
+        manager.show(shown)
+        manager.show(Toast(style: .warning, title: "Busy 1", duration: 10, uniqueKey: "busy"))
+        manager.show(Toast(style: .warning, title: "Busy 2", duration: 10, uniqueKey: "busy"))
+        manager.show(Toast(style: .info, title: "After", duration: 10))
+
+        manager.dismiss(id: shown.id)
+        try await waitUntil("the replaced queued toast did not appear") { manager.currentToast?.title == "Busy 2" }
+        manager.dismiss()
+        try await waitUntil("the next toast did not appear") { manager.currentToast?.title == "After" }
+        manager.clearAll()
+    }
+
+    func testToastsWithoutUniqueKeyAreNotMerged() {
+        let manager = ToastManager(presentation: .stacked(maxVisible: 3))
+        manager.show(Toast(style: .info, title: "Same", duration: 10))
+        manager.show(Toast(style: .info, title: "Same", duration: 10))
+        XCTAssertEqual(manager.visibleToasts.count, 2)
+        manager.clearAll()
+    }
+
+    func testSameIDReplacesTheVisibleToast() {
+        let manager = ToastManager(presentation: .stacked(maxVisible: 3))
+        let id = UUID()
+        manager.show(Toast(id: id, style: .info, title: "Old", duration: 10))
+        manager.show(Toast(id: id, style: .info, title: "New", duration: 10))
+        XCTAssertEqual(manager.visibleToasts.map(\.title), ["New"])
+        manager.clearAll()
+    }
+
+    func testReplacingRestartsTheDurationWithTheNewToast() async throws {
+        let manager = ToastManager()
+        manager.show(Toast(style: .info, title: "Short", duration: 0.1, uniqueKey: "k"))
+        manager.show(Toast(style: .info, title: "Long", duration: 10, uniqueKey: "k"))
+
+        // 「消えないこと」の確認なので、待つべき成立条件が無い。古い duration (0.1) の数倍待つ。
+        try await Task.sleep(for: .seconds(0.4))
+        XCTAssertEqual(manager.currentToast?.title, "Long")
+        manager.clearAll()
+    }
+
+    func testReplacingAPausedToastKeepsItPaused() async throws {
+        let manager = ToastManager()
+        let first = Toast(style: .info, title: "First", duration: 0.1, uniqueKey: "k")
+        manager.show(first)
+        manager.pauseAutoDismiss(for: first.id)
+        manager.show(Toast(style: .info, title: "Second", duration: 0.1, uniqueKey: "k"))
+
+        // 「消えないこと」の確認なので、待つべき成立条件が無い。duration (0.1) の数倍待つ。
+        try await Task.sleep(for: .seconds(0.4))
+        XCTAssertEqual(manager.currentToast?.title, "Second")
+
+        manager.resumeAutoDismiss(for: first.id)
+        try await waitUntil("the replaced toast was not dismissed after resume") { manager.currentToast == nil }
+    }
+
+    // MARK: - 置き換えで一意を保つ (表示中とキューを合わせて、同じ id・同じ uniqueKey は 1 件だけ)
+
+    func testReplacingDropsAnotherVisibleToastWithTheSameKey() {
+        // id は A に、key は B に当たる toast を出すと、A を置き換えて B は消す。
+        let manager = ToastManager(presentation: .stacked(maxVisible: 3))
+        let first = Toast(style: .info, title: "A", duration: 10)
+        manager.show(first)
+        manager.show(Toast(style: .info, title: "B", duration: 10, uniqueKey: "k"))
+
+        manager.show(Toast(id: first.id, style: .info, title: "New", duration: 10, uniqueKey: "k"))
+        XCTAssertEqual(manager.visibleToasts.map(\.title), ["New"])
+        XCTAssertEqual(manager.visibleToasts.first?.id, first.id)
+        manager.clearAll()
+    }
+
+    func testReplacingAVisibleToastDropsAQueuedToastWithTheSameKey() async throws {
+        let manager = ToastManager()
+        let shown = Toast(style: .info, title: "Shown", duration: 10)
+        manager.show(shown)
+        manager.show(Toast(style: .info, title: "Queued", duration: 10, uniqueKey: "k"))
+
+        manager.show(Toast(id: shown.id, style: .info, title: "New", duration: 10, uniqueKey: "k"))
+        XCTAssertEqual(manager.currentToast?.title, "New")
+        manager.dismiss()
+        // 「出ないこと」の確認なので、待つべき成立条件が無い。キューの待ち (0.3 秒) より十分長く待つ。
+        try await Task.sleep(for: dismissProcessingWindow)
+        XCTAssertNil(manager.currentToast)
+    }
+
+    func testReplacingAQueuedToastDropsAnotherQueuedToastWithTheSameKey() async throws {
+        let manager = ToastManager()
+        let shown = Toast(style: .info, title: "Shown", duration: 10)
+        let queuedByID = Toast(style: .info, title: "Queued 1", duration: 10)
+        manager.show(shown)
+        manager.show(queuedByID)
+        manager.show(Toast(style: .info, title: "Queued 2", duration: 10, uniqueKey: "k"))
+
+        manager.show(Toast(id: queuedByID.id, style: .info, title: "New", duration: 10, uniqueKey: "k"))
+        manager.dismiss()
+        try await waitUntil("the replaced queued toast did not appear") { manager.currentToast?.title == "New" }
+        manager.dismiss()
+        // 「出ないこと」の確認なので、待つべき成立条件が無い。キューの待ち (0.3 秒) より十分長く待つ。
+        try await Task.sleep(for: dismissProcessingWindow)
+        XCTAssertNil(manager.currentToast)
+    }
+
+    func testDismissWithNothingShownDoesNotDelayTheNextShow() {
+        // 何も出ていないときの dismiss() は何もしない (待ちを始めない)。
+        let manager = ToastManager()
+        manager.dismiss()
+        manager.show(Toast(style: .info, title: "Now", duration: 10))
+        XCTAssertEqual(manager.currentToast?.title, "Now")
+        manager.clearAll()
+    }
 }

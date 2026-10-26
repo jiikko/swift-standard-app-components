@@ -21,8 +21,11 @@ import SwiftUI
 /// `any ToastManaging` を `EnvironmentValues` に乗せた時に `WritableKeyPath` が
 /// 作れなくなる (consumer 側で `View.environment(\.toastManager, ...)` が型エラー)。
 public protocol ToastManaging: AnyObject, Sendable {
-    /// 現在表示中のトースト。
+    /// 現在表示中のトースト (複数を並べて出す manager では、いちばん新しいもの)。
     @MainActor var currentToast: Toast? { get }
+
+    /// 表示中のトースト (古い順)。`ToastContainerView` はこれを並べて描く。
+    @MainActor var visibleToasts: [Toast] { get }
 
     /// トーストを表示する (キューに追加)。
     @MainActor func show(_ toast: Toast)
@@ -51,6 +54,9 @@ public protocol ToastManaging: AnyObject, Sendable {
     /// 現在のトーストを即座に消去。
     @MainActor func dismiss()
 
+    /// 指定した id の表示中のトーストを消す (吹き出しの閉じるボタン)。表示中に無ければ何もしない。
+    @MainActor func dismiss(id: Toast.ID)
+
     /// 全てのトーストをクリア。
     @MainActor func clearAll()
 
@@ -66,6 +72,21 @@ public protocol ToastManaging: AnyObject, Sendable {
 // MARK: - Default Parameter Extensions
 
 extension ToastManaging {
+    /// 既定は `currentToast` の 0〜1 件 (1 件ずつ出す manager と同じ)。後から足した要件なので、既存の conformer を
+    /// ビルドで落とさないための既定。
+    /// 🚨 複数を並べる manager (`ToastManager(presentation: .stacked)`) を包む proxy は、`visibleToasts` と
+    /// `dismiss(id:)` も転送する。転送しないと最新の 1 件しか描かれず、他は見えないまま時間切れで消える。
+    @MainActor
+    public var visibleToasts: [Toast] {
+        currentToast.map { [$0] } ?? []
+    }
+
+    /// 既定は、表示中が同じ id なら `dismiss()`。`visibleToasts` を参照。
+    @MainActor
+    public func dismiss(id: Toast.ID) {
+        if currentToast?.id == id { dismiss() }
+    }
+
     /// 既定は何もしない (ホバーで止めない)。後から足した要件なので、既存の conformer をビルドで落とさないための既定。
     /// 🚨 本物の manager を包む proxy (ログ付きの wrapper など) は、包んだ先へ転送しないとホバーで止まらない。
     @MainActor

@@ -29,35 +29,45 @@ public struct ToastView: View {
         static let shadowY: CGFloat = 4
     }
 
-    private let toast: Toast
+    // `Toast` は丸ごと持たない。`Toast` の `==` は id しか比べないので、同じ id のまま中身を置き換えた
+    // (`uniqueKey` での置き換え) とき、SwiftUI がこの view を同じとみなして描き直さない。中身を値で持つ。
+    private let style: Toast.Style
+    private let title: String
+    private let message: String?
+    private let action: ToastAction?
+    private let accessibilityText: String
     private let onDismiss: () -> Void
 
     /// - Parameters:
     ///   - toast: 表示する Toast。
     ///   - onDismiss: 閉じるボタン or アクションボタンが押された時に呼ばれる。
-    ///     呼び出し側で `manager.dismiss()` を呼ぶことを想定。
+    ///     呼び出し側でこのトーストを消す (`ToastContainerView` は `manager.dismiss(id:)` を呼ぶ)。
     public init(toast: Toast, onDismiss: @escaping () -> Void) {
-        self.toast = toast
+        self.style = toast.style
+        self.title = toast.title
+        self.message = toast.message
+        self.action = toast.action
+        self.accessibilityText = toast.accessibilityLabel
         self.onDismiss = onDismiss
     }
 
     public var body: some View {
         HStack(spacing: Layout.contentSpacing) {
             // アイコン
-            Image(systemName: toast.style.iconName)
+            Image(systemName: style.iconName)
                 .font(.system(size: Layout.iconFontSize, weight: .semibold))
-                .foregroundStyle(toast.style.foregroundColor)
+                .foregroundStyle(style.foregroundColor)
 
             // テキスト
             VStack(alignment: .leading, spacing: Layout.textSpacing) {
-                Text(toast.title)
+                Text(title)
                     .font(.system(size: Layout.titleFontSize, weight: .semibold))
-                    .foregroundStyle(toast.style.foregroundColor)
+                    .foregroundStyle(style.foregroundColor)
 
-                if let message = toast.message {
+                if let message {
                     Text(message)
                         .font(.system(size: Layout.messageFontSize))
-                        .foregroundStyle(toast.style.foregroundColor.opacity(Layout.messageOpacity))
+                        .foregroundStyle(style.foregroundColor.opacity(Layout.messageOpacity))
                         .lineLimit(Layout.messageLineLimit)
                 }
             }
@@ -65,14 +75,16 @@ public struct ToastView: View {
             Spacer(minLength: Layout.spacerMinLength)
 
             // アクションボタン (オプション)
-            if let action = toast.action {
+            if let action {
                 Button {
-                    action.handler()
+                    // 先に閉じてから handler を呼ぶ。handler が同じ id / uniqueKey のトースト (再試行の失敗など) を出すと、
+                    // 逆の順では表示中のこのトーストが置き換わった直後に閉じられ、何も見えない
                     onDismiss()
+                    action.handler()
                 } label: {
                     Text(action.title)
                         .font(.system(size: Layout.actionButtonFontSize, weight: .medium))
-                        .foregroundStyle(toast.style.foregroundColor)
+                        .foregroundStyle(style.foregroundColor)
                         .padding(.horizontal, Layout.actionButtonHorizontalPadding)
                         .padding(.vertical, Layout.actionButtonVerticalPadding)
                         .background(
@@ -87,7 +99,7 @@ public struct ToastView: View {
             Button(action: onDismiss) {
                 Image(systemName: "xmark")
                     .font(.system(size: Layout.closeButtonFontSize, weight: .semibold))
-                    .foregroundStyle(toast.style.foregroundColor.opacity(Layout.closeButtonOpacity))
+                    .foregroundStyle(style.foregroundColor.opacity(Layout.closeButtonOpacity))
             }
             .buttonStyle(.plain)
         }
@@ -95,11 +107,11 @@ public struct ToastView: View {
         .padding(.vertical, Layout.verticalPadding)
         .background(
             RoundedRectangle(cornerRadius: Layout.cornerRadius)
-                .fill(toast.style.backgroundColor)
+                .fill(style.backgroundColor)
                 .shadow(color: .black.opacity(Layout.shadowOpacity), radius: Layout.shadowRadius, x: 0, y: Layout.shadowY)
         )
         .accessibilityElement(children: .combine)
-        .accessibilityLabel(toast.accessibilityLabel)
-        .accessibilityAddTraits(toast.action == nil ? .isStaticText : [])
+        .accessibilityLabel(accessibilityText)
+        .accessibilityAddTraits(action == nil ? .isStaticText : [])
     }
 }

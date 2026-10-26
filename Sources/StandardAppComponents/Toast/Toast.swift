@@ -22,24 +22,30 @@ public struct Toast: Identifiable, Equatable {
     public let duration: TimeInterval
     /// 任意のアクションボタン (例: 「Finder で開く」)。
     public let action: ToastAction?
+    /// 重複させたくない通知に付けるキー。同じキーのトーストが表示中かキューに居れば、
+    /// `ToastManager.show(_:)` は新しく足さずにそれを置き換える (元の id を引き継ぐので、渡した `id` は使われない)。
+    /// `nil` なら重複を許す。
+    public let uniqueKey: String?
 
     /// - Parameters:
     ///   - id: 通常は省略 (`UUID()`)。consumer 側で安定 id を持って同一トーストとして
     ///     扱いたい (例: 進捗通知を id 固定でログから追跡する) 場合のみ明示。
-    ///     **同 id を渡しても `ToastManaging.show(_:)` は単に queue に追加するのみで
-    ///     既存表示の置換は行わない**。
+    ///     同じ id のトーストが表示中かキューに居れば、`ToastManager.show(_:)` はそれを置き換える
+    ///     (表示を id で並べるので、同じ id を 2 件持たない)。
     ///   - style: 見た目とアクセシビリティラベルに影響。
     ///   - title: 必須の 1 行目。
     ///   - message: 補足。`nil` ならタイトルのみ表示。
     ///   - duration: 自動消去までの秒数。デフォルト 3.0。
     ///   - action: 任意のアクションボタン。`nil` なら閉じるボタンのみ。
+    ///   - uniqueKey: 重複させたくない通知に付けるキー (`uniqueKey` プロパティを参照)。
     public init(
         id: UUID = UUID(),
         style: Style,
         title: String,
         message: String? = nil,
         duration: TimeInterval = 3.0,
-        action: ToastAction? = nil
+        action: ToastAction? = nil,
+        uniqueKey: String? = nil
     ) {
         self.id = id
         self.style = style
@@ -47,6 +53,13 @@ public struct Toast: Identifiable, Equatable {
         self.message = message
         self.duration = duration
         self.action = action
+        self.uniqueKey = uniqueKey
+    }
+
+    /// 中身はそのままで、id だけを差し替えた写し。置き換えで元の id を引き継ぐときに使う
+    /// (吹き出しが入り直さず、ホバーの停止も同じ id のまま続く)。
+    func replacingID(with id: UUID) -> Toast {
+        Toast(id: id, style: style, title: title, message: message, duration: duration, action: action, uniqueKey: uniqueKey)
     }
 
     public static func == (lhs: Toast, rhs: Toast) -> Bool {
