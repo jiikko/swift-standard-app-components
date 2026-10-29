@@ -39,17 +39,7 @@ import SwiftUI
 ///   インライン footnote (`error.localizedDescription`) として表示しつつ、解析したい
 ///   consumer は `onError` callback で受け取り、自前の logger / toast / alert に流す。
 public struct LaunchAtLoginToggle: View {
-    /// label の解決先 bundle を型で区別する。
-    /// - `.libDefault`: lib 同梱 xcstrings ("Open at Login" / "ログイン時に開く") を使う。
-    ///   `Text(_, bundle: .module)` で lib bundle を明示するため `LocalizedStringKey`
-    ///   経由 (= consumer main bundle 解決) ではなく専用 case を持つ。
-    /// - `.custom`: consumer 側で解決する `LocalizedStringKey` をそのまま `Text` に渡す。
-    private enum LabelSource {
-        case libDefault
-        case custom(LocalizedStringKey)
-    }
-
-    private let labelSource: LabelSource
+    private let labelSource: ToggleLabelSource
     private let onError: ((Error) -> Void)?
     @Environment(\.scenePhase) private var scenePhase
     @State private var isOn: Bool = false
@@ -80,12 +70,7 @@ public struct LaunchAtLoginToggle: View {
     public var body: some View {
         VStack(alignment: .leading, spacing: 4) {
             Toggle(isOn: bindingToService) {
-                switch labelSource {
-                case .libDefault:
-                    Text("Open at Login", bundle: .module)
-                case .custom(let key):
-                    Text(key)
-                }
+                labelSource.text { Text("Open at Login", bundle: .module) }
             }
             .disabled(status == .unavailable)
 

@@ -33,17 +33,7 @@ import SwiftUI
 /// 標準 API) は無いため、本 Toggle は consumer の binding にのみ依存する。
 /// 永続化キーや NSStatusItem ライフサイクルは consumer の関心。
 public struct MenuBarVisibilityToggle: View {
-    /// label の解決先 bundle を型で区別する。
-    /// - `.libDefault`: lib 同梱 xcstrings ("Show in Menu Bar" / "メニューバーに表示") を使う。
-    ///   `Text(_, bundle: .module)` で lib bundle を明示するため `LocalizedStringKey`
-    ///   経由 (= consumer main bundle 解決) ではなく専用 case を持つ。
-    /// - `.custom`: consumer 側で解決する `LocalizedStringKey` をそのまま `Text` に渡す。
-    private enum LabelSource {
-        case libDefault
-        case custom(LocalizedStringKey)
-    }
-
-    private let labelSource: LabelSource
+    private let labelSource: ToggleLabelSource
     @Binding private var isOn: Bool
 
     /// lib 同梱の "Show in Menu Bar" (ja: "メニューバーに表示") をラベルに使う。
@@ -68,12 +58,7 @@ public struct MenuBarVisibilityToggle: View {
 
     public var body: some View {
         Toggle(isOn: $isOn) {
-            switch labelSource {
-            case .libDefault:
-                Text("Show in Menu Bar", bundle: .module)
-            case .custom(let key):
-                Text(key)
-            }
+            labelSource.text { Text("Show in Menu Bar", bundle: .module) }
         }
     }
 }
