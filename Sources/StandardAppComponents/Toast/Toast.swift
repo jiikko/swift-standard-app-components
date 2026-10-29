@@ -65,7 +65,16 @@ public struct Toast: Identifiable, Equatable {
     /// 中身はそのままで、id だけを差し替えた写し。置き換えで元の id を引き継ぐときに使う
     /// (吹き出しが入り直さず、ホバーの停止も同じ id のまま続く)。
     func replacingID(with id: UUID) -> Toast {
-        Toast(id: id, style: style, title: title, message: message, duration: duration, action: action, uniqueKey: uniqueKey, copiesMessage: copiesMessage)
+        Toast(
+            id: id,
+            style: style,
+            title: title,
+            message: message,
+            duration: duration,
+            action: action,
+            uniqueKey: uniqueKey,
+            copiesMessage: copiesMessage
+        )
     }
 
     public static func == (lhs: Toast, rhs: Toast) -> Bool {

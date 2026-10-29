@@ -140,12 +140,12 @@ extension ToastManaging {
 
     // MARK: - Message Copy Overloads
 
-    /// `copiesMessage` 付きの便利オーバーロード群。protocol の必須メソッドには引数を足さない
-    /// (足すと既存の conformer / モックがビルドで落ちる) ため、ここで `Toast` を組み立てて
-    /// `show(_:)` に流す。style ごとの duration の既定は必須メソッド側と揃える
-    /// (success / info は 3.0、warning は 4.0、error は 5.0 固定、action 付きは 5.0)。
-    /// 呼び出し側は `copiesMessage: true` を足すだけで、右クリックから `message` をコピーできる。
+    // `copiesMessage` 付きの便利オーバーロード群。protocol の必須メソッドには引数を足さない
+    // (足すと既存の conformer / モックがビルドで落ちる) ため、ここで `Toast` を組み立てて
+    // `show(_:)` に流す。style ごとの duration の既定は必須メソッド側と揃える
+    // (success / info は 3.0、warning は 4.0、error は 5.0 固定、action 付きは 5.0)。
 
+    /// 成功トーストを表示する。`copiesMessage` が `true` なら右クリックで `message` をコピーできる。
     @MainActor
     public func showSuccess(
         _ title: LocalizedStringResource,
@@ -162,6 +162,7 @@ extension ToastManaging {
         ))
     }
 
+    /// エラートーストを表示する (5 秒)。`copiesMessage` が `true` なら右クリックで `message` をコピーできる。
     @MainActor
     public func showError(
         _ title: LocalizedStringResource,
@@ -177,6 +178,7 @@ extension ToastManaging {
         ))
     }
 
+    /// 情報トーストを表示する。`copiesMessage` が `true` なら右クリックで `message` をコピーできる。
     @MainActor
     public func showInfo(
         _ title: LocalizedStringResource,
@@ -193,6 +195,7 @@ extension ToastManaging {
         ))
     }
 
+    /// 警告トーストを表示する。`copiesMessage` が `true` なら右クリックで `message` をコピーできる。
     @MainActor
     public func showWarning(
         _ title: LocalizedStringResource,
@@ -209,6 +212,7 @@ extension ToastManaging {
         ))
     }
 
+    /// アクションボタン付きのトーストを表示する。`copiesMessage` が `true` なら右クリックで `message` をコピーできる。
     @MainActor
     public func showWithAction(
         style: Toast.Style,
