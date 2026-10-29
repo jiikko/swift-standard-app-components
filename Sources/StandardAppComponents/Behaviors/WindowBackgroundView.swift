@@ -25,14 +25,17 @@ public struct WindowBackgroundView: NSViewRepresentable {
 
     public func makeNSView(context: Context) -> NSVisualEffectView {
         let view = NSVisualEffectView()
-        view.material = material
-        view.blendingMode = blendingMode
         view.state = .followsWindowActiveState
+        applyAppearance(to: view)
         return view
     }
 
     public func updateNSView(_ nsView: NSVisualEffectView, context: Context) {
-        nsView.material = material
-        nsView.blendingMode = blendingMode
+        applyAppearance(to: nsView)
+    }
+
+    private func applyAppearance(to view: NSVisualEffectView) {
+        view.material = material
+        view.blendingMode = blendingMode
     }
 }
