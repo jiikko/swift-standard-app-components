@@ -26,6 +26,9 @@ public struct Toast: Identifiable, Equatable {
     /// `ToastManager.show(_:)` は新しく足さずにそれを置き換える (元の id を引き継ぐので、渡した `id` は使われない)。
     /// `nil` なら重複を許す。
     public let uniqueKey: String?
+    /// 右クリックのコンテキストメニューから `message` をコピーできるようにするか。
+    /// `true` でも `message` が `nil` ならメニューは出ない (コピーする中身が無いため)。
+    public let copiesMessage: Bool
 
     /// - Parameters:
     ///   - id: 通常は省略 (`UUID()`)。consumer 側で安定 id を持って同一トーストとして
@@ -38,6 +41,7 @@ public struct Toast: Identifiable, Equatable {
     ///   - duration: 自動消去までの秒数。デフォルト 3.0。
     ///   - action: 任意のアクションボタン。`nil` なら閉じるボタンのみ。
     ///   - uniqueKey: 重複させたくない通知に付けるキー (`uniqueKey` プロパティを参照)。
+    ///   - copiesMessage: `true` なら右クリックのコンテキストメニューから `message` をコピーできる。
     public init(
         id: UUID = UUID(),
         style: Style,
@@ -45,7 +49,8 @@ public struct Toast: Identifiable, Equatable {
         message: String? = nil,
         duration: TimeInterval = 3.0,
         action: ToastAction? = nil,
-        uniqueKey: String? = nil
+        uniqueKey: String? = nil,
+        copiesMessage: Bool = false
     ) {
         self.id = id
         self.style = style
@@ -54,12 +59,22 @@ public struct Toast: Identifiable, Equatable {
         self.duration = duration
         self.action = action
         self.uniqueKey = uniqueKey
+        self.copiesMessage = copiesMessage
     }
 
     /// 中身はそのままで、id だけを差し替えた写し。置き換えで元の id を引き継ぐときに使う
     /// (吹き出しが入り直さず、ホバーの停止も同じ id のまま続く)。
     func replacingID(with id: UUID) -> Toast {
-        Toast(id: id, style: style, title: title, message: message, duration: duration, action: action, uniqueKey: uniqueKey)
+        Toast(
+            id: id,
+            style: style,
+            title: title,
+            message: message,
+            duration: duration,
+            action: action,
+            uniqueKey: uniqueKey,
+            copiesMessage: copiesMessage
+        )
     }
 
     public static func == (lhs: Toast, rhs: Toast) -> Bool {
@@ -73,6 +88,13 @@ public struct Toast: Identifiable, Equatable {
     public var accessibilityLabel: String {
         guard let message else { return title }
         return "\(title). \(message)"
+    }
+
+    /// コンテキストメニューでコピーする文字列。`copiesMessage` が `true` のときだけ `message` を返す。
+    /// 返すのは表示用に truncate された文ではなくモデルの全文。条件分岐を View 側に置かず
+    /// model の pure 計算に寄せることで単体テストできる (`accessibilityLabel` と同じ方針)。
+    public var messageToCopy: String? {
+        copiesMessage ? message : nil
     }
 }
 

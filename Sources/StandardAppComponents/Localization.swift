@@ -41,6 +41,8 @@ public enum StandardAppComponentsLocalization {
         "Reset All to Default",
         // Feedback
         "Cancel",
+        // Toast (context menu)
+        "Copy Message",
         // Generic section header (lib screenshot demos / consumer 側 misc section にも使える)
         "Other"
     ]

@@ -325,6 +325,24 @@
         }
       }
     },
+    "Copy Message": {
+      "comment": "Toast context menu - copy the toast message to the pasteboard",
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Copy Message"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "メッセージをコピー"
+          }
+        }
+      }
+    },
     "Other": {
       "comment": "Generic section header for miscellaneous Settings (used in lib screenshot demos; consumers may also use it for misc appSections)",
       "extractionState": "manual",
