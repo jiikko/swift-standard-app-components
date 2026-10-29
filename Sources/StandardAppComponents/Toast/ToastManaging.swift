@@ -137,4 +137,94 @@ extension ToastManaging {
             action: action
         )
     }
+
+    // MARK: - Message Copy Overloads
+
+    /// `copiesMessage` 付きの便利オーバーロード群。protocol の必須メソッドには引数を足さない
+    /// (足すと既存の conformer / モックがビルドで落ちる) ため、ここで `Toast` を組み立てて
+    /// `show(_:)` に流す。style ごとの duration の既定は必須メソッド側と揃える
+    /// (success / info は 3.0、warning は 4.0、error は 5.0 固定、action 付きは 5.0)。
+    /// 呼び出し側は `copiesMessage: true` を足すだけで、右クリックから `message` をコピーできる。
+
+    @MainActor
+    public func showSuccess(
+        _ title: LocalizedStringResource,
+        message: ToastText? = nil,
+        duration: TimeInterval = 3.0,
+        copiesMessage: Bool
+    ) {
+        show(Toast(
+            style: .success,
+            title: String(localized: title),
+            message: message?.resolve(),
+            duration: duration,
+            copiesMessage: copiesMessage
+        ))
+    }
+
+    @MainActor
+    public func showError(
+        _ title: LocalizedStringResource,
+        message: ToastText? = nil,
+        copiesMessage: Bool
+    ) {
+        show(Toast(
+            style: .error,
+            title: String(localized: title),
+            message: message?.resolve(),
+            duration: 5.0,
+            copiesMessage: copiesMessage
+        ))
+    }
+
+    @MainActor
+    public func showInfo(
+        _ title: LocalizedStringResource,
+        message: ToastText? = nil,
+        duration: TimeInterval = 3.0,
+        copiesMessage: Bool
+    ) {
+        show(Toast(
+            style: .info,
+            title: String(localized: title),
+            message: message?.resolve(),
+            duration: duration,
+            copiesMessage: copiesMessage
+        ))
+    }
+
+    @MainActor
+    public func showWarning(
+        _ title: LocalizedStringResource,
+        message: ToastText? = nil,
+        duration: TimeInterval = 4.0,
+        copiesMessage: Bool
+    ) {
+        show(Toast(
+            style: .warning,
+            title: String(localized: title),
+            message: message?.resolve(),
+            duration: duration,
+            copiesMessage: copiesMessage
+        ))
+    }
+
+    @MainActor
+    public func showWithAction(
+        style: Toast.Style,
+        title: LocalizedStringResource,
+        message: ToastText? = nil,
+        duration: TimeInterval = 5.0,
+        action: ToastAction,
+        copiesMessage: Bool
+    ) {
+        show(Toast(
+            style: style,
+            title: String(localized: title),
+            message: message?.resolve(),
+            duration: duration,
+            action: action,
+            copiesMessage: copiesMessage
+        ))
+    }
 }

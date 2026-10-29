@@ -94,6 +94,37 @@ final class ToastTests: XCTestCase {
         XCTAssertEqual(toast.accessibilityLabel, "Title. ")
     }
 
+    // MARK: - message copy (context menu)
+
+    func testMessageToCopyIsNilByDefault() {
+        // copiesMessage を渡さなければコピー対象は無い (既定は従来どおりメニューを出さない)。
+        let toast = Toast(style: .error, title: "Failed", message: "Path does not exist")
+        XCTAssertFalse(toast.copiesMessage)
+        XCTAssertNil(toast.messageToCopy)
+    }
+
+    func testMessageToCopyReturnsFullMessageWhenCopiesMessageIsTrue() {
+        // copiesMessage: true なら message の全文がコピー対象になる。
+        // 表示は 2 行で truncate されるが、コピーはモデルの文字列から取る契約。
+        let toast = Toast(style: .error, title: "Failed", message: "Path does not exist", copiesMessage: true)
+        XCTAssertEqual(toast.messageToCopy, "Path does not exist")
+    }
+
+    func testMessageToCopyIsNilWhenMessageIsNilEvenIfCopiesMessageIsTrue() {
+        // message が無ければコピーする中身が無いので、true でも対象は nil (メニューは出ない)。
+        let toast = Toast(style: .success, title: "Saved", copiesMessage: true)
+        XCTAssertNil(toast.messageToCopy)
+    }
+
+    func testReplacingIDPreservesCopiesMessage() {
+        // uniqueKey / 同 id での置き換え (replacingID) で copiesMessage が落ちないこと。
+        // フィールドの足し忘れが起きやすい箇所なので契約として固定する。
+        let toast = Toast(style: .error, title: "Failed", message: "boom", copiesMessage: true)
+        let replaced = toast.replacingID(with: UUID())
+        XCTAssertTrue(replaced.copiesMessage)
+        XCTAssertEqual(replaced.messageToCopy, "boom")
+    }
+
     // MARK: - ToastAction
 
     func testActionHandlerIsInvokable() {
