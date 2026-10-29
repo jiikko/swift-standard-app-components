@@ -23,14 +23,6 @@ final class ToastContainerFrameTests: XCTestCase {
         return (window, view)
     }
 
-    private func waitUntil(_ what: String, _ condition: () -> Bool) async throws {
-        // Hang guard only: SwiftUI commits on the next run-loop turns.
-        for _ in 0..<200 where !condition() {
-            try await Task.sleep(for: .milliseconds(20))
-        }
-        XCTAssertTrue(condition(), what)
-    }
-
     func testReportsTheBubbleInsideTheBottomRightPaddingAndNilWhenItGoes() async throws {
         let manager = ToastManager()
         let frames = Frames()

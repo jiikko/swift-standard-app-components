@@ -227,14 +227,6 @@ final class ToastManagerTests: XCTestCase {
 
     // MARK: - ホバー中の自動消去の停止
 
-    /// 条件が成り立つまで待つ。上限は hang guard で、待ちの長さを合否にしない。
-    private func waitUntil(_ what: String, _ condition: () -> Bool) async throws {
-        for _ in 0..<200 where !condition() {
-            try await Task.sleep(for: .milliseconds(20))
-        }
-        XCTAssertTrue(condition(), what)
-    }
-
     func testPauseAutoDismissKeepsTheToastPastItsDuration() async throws {
         let manager = ToastManager()
         let toast = Toast(style: .error, title: "Long error", duration: 0.1)
