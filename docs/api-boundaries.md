@@ -121,6 +121,18 @@ Toast は軽い完了通知、情報通知、復旧可能なエラー通知に�
 
 `standardBlockingProgressOverlay` は import / sync / destructive batch 処理など、背面操作を止める必要が明確な場合だけ使う。軽い処理中表示、完了通知、復旧可能なエラー表示は Toast や app 固有 UI に残す。
 
+## タイトルバーの切り替え
+
+| API | lib が提供するもの | consumer が実装するもの |
+|---|---|---|
+| `StandardGlassSegmentedPicker` | 枠の無い文字を 1 つのカプセルに入れ、選んでいる値だけを塗る切り替え。カプセルは macOS 26 以降は Liquid Glass、それより前は `quaternarySystemFill` の塗り。押されたら `onSelect` を呼ぶだけで値は持たない | 選んだ値の持ち主 (binding / view model)、表示する文字 (ローカライズ済みの文字を渡す)、同じ行の他のガラスの部品とまとめる `GlassEffectContainer`、タイトルバーの行でのダブルクリックによるウィンドウの拡大の扱い |
+
+標準のツールバーを使わない自前のタイトルバー (`.hiddenTitleBar` の上端の行) に、macOS 26 のツールバーのセグメンテッドコントロールと同じ見え方の切り替えを置くためのもの。
+標準の `Picker` + `.pickerStyle(.segmented)` に `glassEffect` を重ねると、コントロール自身の枠とガラスの枠が二重になる。
+また `NSSegmentedControl` はクリックで first responder を取りうるので、consumer が自前で受ける単キーのショートカットを止めうる。
+標準のツールバーに置けるなら、OS がガラスを描くので標準の `Picker` を使う (この部品は要らない)。
+「共通ボタン」のような広い UI kit とは扱わない: 見た目は macOS 26 のツールバーの標準に合わせて固定し、色や形を差し替える口は持たない。
+
 ## ダブルクリック検出
 
 | API | lib が提供するもの | consumer が実装するもの |
