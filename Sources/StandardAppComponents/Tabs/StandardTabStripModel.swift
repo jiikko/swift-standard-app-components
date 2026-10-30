@@ -26,6 +26,10 @@ final class StandardTabStripModel<Item: Identifiable> {
     private var displayedIDs: [Item.ID] = []
     /// 前に描いた consumer のタブ。閉じた直後 (consumer の一覧から抜けた後) も、縮めている間はこれで描く
     @ObservationIgnored private var renderedItems: [Item.ID: Item] = [:]
+    /// スクロールの見えている所に対するタブの左右の端と、見えている所の幅。選んだタブを送るかを決める。
+    /// スクロールのたびに変わるので観測しない (body を描き直させない)
+    @ObservationIgnored private var visibleSpans: [Item.ID: ClosedRange<CGFloat>] = [:]
+    @ObservationIgnored var viewportWidth: CGFloat = 0
 
     /// 描く並び。閉じた直後の描画ではまだ `closingTabs` に入っていない (onChange は描画の後) ので、同じ見分けでここでも残す
     func entries(for items: [Item], collapses: Bool) -> [StandardTabClosing.Entry<Item.ID>] {
@@ -60,6 +64,24 @@ final class StandardTabStripModel<Item: Identifiable> {
         }
     }
 
+    /// タブの左右の端 (スクロールの見えている所の座標)
+    func recordVisibleSpan(minX: CGFloat, maxX: CGFloat, for id: Item.ID) {
+        guard minX <= maxX else { return }
+        visibleSpans[id] = minX...maxX
+    }
+
+    /// 選んだタブを見える所へ送るか。全部見えていれば送らない (押したタブの下で帯が動くと、ダブルクリックの 2 回目が
+    /// 隣のタブに当たる)。隠れている・一部が切れている・まだ測っていない (足した直後) なら送る
+    func needsScroll(to id: Item.ID) -> Bool {
+        guard let span = visibleSpans[id] else { return true }
+        return !Self.isFullyVisible(span, viewportWidth: viewportWidth)
+    }
+
+    static func isFullyVisible(_ span: ClosedRange<CGFloat>, viewportWidth: CGFloat) -> Bool {
+        // 端数の丸めで 0.5pt はみ出しても見えていると見る
+        viewportWidth > 0 && span.lowerBound >= -0.5 && span.upperBound <= viewportWidth + 0.5
+    }
+
     func resetDrag() {
         draggingID = nil
         lastMove = nil
@@ -72,10 +94,13 @@ final class StandardTabStripModel<Item: Identifiable> {
         collapses: Bool,
         fallbackWidth: CGFloat,
         animation: Animation,
-        onCollapseFinished: (@MainActor (Item.ID) -> Void)?
+        onTabRemoved: (@MainActor (Item.ID) -> Void)?
     ) {
         let ids = items.map(\.id)
         let closedIDs = collapses ? StandardTabClosing.closedIDs(from: renderedIDs, to: ids) : []
+        // 縮めずに一覧から外れたタブ (縮めない設定・置き換え・総入れ替え)。すぐ外れたと知らせる (縮めるタブは縮めきってから)
+        let liveIDSet = Set(ids)
+        let removedNowIDs = renderedIDs.filter { !liveIDSet.contains($0) && !closedIDs.contains($0) }
         displayedIDs = displayed
         for id in closedIDs {
             closingTabs[id] = closingTab(id: id, fallbackWidth: fallbackWidth)
@@ -87,22 +112,25 @@ final class StandardTabStripModel<Item: Identifiable> {
             nextItems[id] = renderedItems[id]
         }
         renderedItems = nextItems
-        let liveIDs = Set(ids)
-        widths = widths.filter { liveIDs.contains($0.key) || closingTabs[$0.key] != nil }
-        if let draggingID, !liveIDs.contains(draggingID) {
+        widths = widths.filter { liveIDSet.contains($0.key) || closingTabs[$0.key] != nil }
+        visibleSpans = visibleSpans.filter { liveIDSet.contains($0.key) }
+        if let draggingID, !liveIDSet.contains(draggingID) {
             resetDrag()
         }
-        if let hoveredID, !liveIDs.contains(hoveredID) {
+        if let hoveredID, !liveIDSet.contains(hoveredID) {
             self.hoveredID = nil
         }
-        startCollapsing(closedIDs, animation: animation, onCollapseFinished: onCollapseFinished)
+        for id in removedNowIDs {
+            onTabRemoved?(id)
+        }
+        startCollapsing(closedIDs, animation: animation, onTabRemoved: onTabRemoved)
     }
 
     /// 閉じたタブを元の幅で 1 回描いてから幅を 0 まで縮め、縮めきったら外す
     private func startCollapsing(
         _ closedIDs: [Item.ID],
         animation: Animation,
-        onCollapseFinished: (@MainActor (Item.ID) -> Void)?
+        onTabRemoved: (@MainActor (Item.ID) -> Void)?
     ) {
         guard !closedIDs.isEmpty else { return }
         Task { @MainActor in
@@ -111,12 +139,12 @@ final class StandardTabStripModel<Item: Identifiable> {
                     closingTabs[id]?.isCollapsed = true
                 }
             } completion: { [self] in
-                finishCollapsing(closedIDs, onCollapseFinished: onCollapseFinished)
+                finishCollapsing(closedIDs, onTabRemoved: onTabRemoved)
             }
         }
     }
 
-    private func finishCollapsing(_ closedIDs: [Item.ID], onCollapseFinished: (@MainActor (Item.ID) -> Void)?) {
+    private func finishCollapsing(_ closedIDs: [Item.ID], onTabRemoved: (@MainActor (Item.ID) -> Void)?) {
         // 縮めている途中に同じ id を足し直した (consumer の一覧に戻ってきた) ものは、生きているタブとして残す
         let liveIDs = Set(renderedIDs)
         for id in closedIDs {
@@ -124,8 +152,8 @@ final class StandardTabStripModel<Item: Identifiable> {
             if !liveIDs.contains(id) {
                 renderedItems[id] = nil
                 widths[id] = nil
+                onTabRemoved?(id)
             }
-            onCollapseFinished?(id)
         }
         displayedIDs.removeAll { closedIDs.contains($0) && !liveIDs.contains($0) }
     }

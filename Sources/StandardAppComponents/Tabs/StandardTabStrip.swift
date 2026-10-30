@@ -44,7 +44,8 @@ public struct StandardTabStrip<Item: Identifiable, Label: View>: View {
     ///   - onAdd: + を押した (nil なら + を出さない)
     ///   - onMove: ドラッグで並べ替えた。`moving` を `target` の前 / 後ろへ (nil なら並べ替えない)
     ///   - canDrag: ドラッグを始められるか (名前の入力中などで止める)
-    ///   - onCollapseFinished: 閉じたタブを縮めきって並びから外した。consumer が縮める間のために持っていた写しを捨てる時点
+    ///   - onTabRemoved: consumer の一覧から抜けたタブが帯から消えた (閉じたタブは縮めきってから、置き換え・総入れ替え・縮めない設定ではすぐ)。
+    ///     consumer がタブごとに持っていた値 (縮める間に描く題名の写しなど) を捨てる時点。縮めている途中に同じ id が戻ってきたら呼ばない
     ///   - accessibilityIdentifier: タブの accessibility の identifier (UI テストで探す)
     ///   - tabOverlay: タブ全体に重ねる view (× の所も覆う。× を避けるなら `StandardTabStripConfiguration.closeButtonReservedWidth` だけ右を空ける)
     ///   - trailingAccessory: + の右 (+ が無ければタブの右) に置く view (読み込み中の表示・popover の起点など)
@@ -61,7 +62,7 @@ public struct StandardTabStrip<Item: Identifiable, Label: View>: View {
         onAdd: (@MainActor () -> Void)? = nil,
         onMove: (@MainActor (_ moving: Item.ID, _ target: Item.ID, _ placement: StandardTabMovePlacement) -> Void)? = nil,
         canDrag: @escaping @MainActor (Item) -> Bool = { _ in true },
-        onCollapseFinished: (@MainActor (Item.ID) -> Void)? = nil,
+        onTabRemoved: (@MainActor (Item.ID) -> Void)? = nil,
         accessibilityIdentifier: @escaping @MainActor (Item) -> String? = { _ in nil },
         tabOverlay: (@MainActor (Item, StandardTabState) -> AnyView)? = nil,
         trailingAccessory: (@MainActor () -> AnyView)? = nil,
@@ -74,7 +75,7 @@ public struct StandardTabStrip<Item: Identifiable, Label: View>: View {
         self.configuration = configuration
         self.actions = Actions(
             onSelect: onSelect, onClose: onClose, canClose: canClose, onAdd: onAdd, onMove: onMove,
-            canDrag: canDrag, onCollapseFinished: onCollapseFinished
+            canDrag: canDrag, onTabRemoved: onTabRemoved
         )
         self.slots = Slots(
             accessibilityIdentifier: accessibilityIdentifier, tabOverlay: tabOverlay,
@@ -86,6 +87,8 @@ public struct StandardTabStrip<Item: Identifiable, Label: View>: View {
     public var body: some View {
         let entries = model.entries(for: items, collapses: collapses)
         layout(entries: entries)
+            // 置き場所より背が高くなっても、帯の下端に寄せて切る。切らないと選んでいるタブの塗りが上へ伸び、
+            // 帯をタイトルバーの行に置いたアプリではタイトルバーまで塗りが届く
             .frame(maxHeight: .infinity, alignment: .bottom)
             .clipped()
             .onAppear { model.start(with: items) }
@@ -96,7 +99,7 @@ public struct StandardTabStrip<Item: Identifiable, Label: View>: View {
                     collapses: collapses,
                     fallbackWidth: configuration.tabWidth.lowerBound,
                     animation: configuration.collapseAnimation,
-                    onCollapseFinished: actions.onCollapseFinished
+                    onTabRemoved: actions.onTabRemoved
                 )
             }
             // タブの隙間や + など、どのタブにも乗らない所へ drop されたときにドラッグの状態を片付ける (タブの drop 先が優先される)
@@ -144,7 +147,10 @@ public struct StandardTabStrip<Item: Identifiable, Label: View>: View {
             // 中央に寄せる (寄せないと端のタブが途中で切れて残る)。見るのは表示の幅 (中身の幅だと縮めている毎フレームで送り直す)
             .onAppear { scrollToActive(proxy) }
             .onChange(of: activeID) { _, _ in scrollToActive(proxy) }
-            .onGeometryChange(for: CGFloat.self) { $0.size.width } action: { _ in scrollToActive(proxy) }
+            .onGeometryChange(for: CGFloat.self) { $0.size.width } action: { width in
+                model.viewportWidth = width
+                scrollToActive(proxy)
+            }
             .onChange(of: model.closingTabs.isEmpty) { _, isEmpty in
                 // 選んでいたタブを閉じたとき、送り先は縮める前の並びで決まる。縮めきってから送り直す
                 if isEmpty { scrollToActive(proxy) }
@@ -235,6 +241,10 @@ public struct StandardTabStrip<Item: Identifiable, Label: View>: View {
         .onGeometryChange(for: CGFloat.self) { $0.size.width } action: { width in
             model.recordWidth(width, for: id)
         }
+        // スクロールの見えている所に対する左右の端 (選んだタブを送るかを決める)
+        .onGeometryChange(for: CGRect.self) { $0.frame(in: .scrollView) } action: { frame in
+            model.recordVisibleSpan(minX: frame.minX, maxX: frame.maxX, for: id)
+        }
         .contentShape(Rectangle())
         .onTapGesture {
             // 取り消されたドラッグの状態が残っていたら、ここで片付けてから選ぶ (この 1 回のクリックも選択に使う)
@@ -271,6 +281,8 @@ public struct StandardTabStrip<Item: Identifiable, Label: View>: View {
     private func scrollToActive(_ proxy: ScrollViewProxy) {
         guard let activeID else { return }
         Task { @MainActor in
+            // 全部見えているタブでは帯を動かさない (`StandardTabStripModel.needsScroll`)
+            guard model.needsScroll(to: activeID) else { return }
             withAnimation(.easeOut(duration: 0.2)) {
                 proxy.scrollTo(activeID, anchor: .center)
             }
@@ -286,7 +298,7 @@ public struct StandardTabStrip<Item: Identifiable, Label: View>: View {
         let onAdd: (@MainActor () -> Void)?
         let onMove: (@MainActor (Item.ID, Item.ID, StandardTabMovePlacement) -> Void)?
         let canDrag: @MainActor (Item) -> Bool
-        let onCollapseFinished: (@MainActor (Item.ID) -> Void)?
+        let onTabRemoved: (@MainActor (Item.ID) -> Void)?
     }
 
     private struct Slots {

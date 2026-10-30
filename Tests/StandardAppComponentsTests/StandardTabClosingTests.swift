@@ -68,4 +68,17 @@ final class StandardTabClosingTests: XCTestCase {
         XCTAssertEqual(StandardTabMovePlacement.placement(locationX: 60, tabWidth: 100), .after)
         XCTAssertEqual(StandardTabMovePlacement.placement(locationX: 10, tabWidth: 0), .before)
     }
+
+    func test_ちょうど中央は後ろ_幅が負なら前() {
+        // 中央 (幅の半分) は左半分の外なので後ろ
+        XCTAssertEqual(StandardTabMovePlacement.placement(locationX: 50, tabWidth: 100), .after)
+        XCTAssertEqual(StandardTabMovePlacement.placement(locationX: 5, tabWidth: -10), .before)
+    }
+
+    func test_縮めるタブが無ければconsumerの並びのまま() {
+        // 前に描いた並びが違っても (並べ替えた直後)、縮めるタブが無ければ前の並びを見ない
+        let entries = StandardTabClosing.entries(live: [first, second], closing: [], previousOrder: [second, first])
+        XCTAssertEqual(entries.map(\.id), [first, second])
+        XCTAssertEqual(entries.map(\.liveIndex), [0, 1])
+    }
 }

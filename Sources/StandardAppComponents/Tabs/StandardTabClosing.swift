@@ -6,7 +6,9 @@ import Foundation
 /// そこで閉じたタブを「縮めている途中のタブ」として並びに残し、幅を 0 まで縮めてから外す。
 enum StandardTabClosing {
     /// 前に描いた並びから、タブが閉じられた (いくつか抜け、残ったのは前に在ったタブだけ) か。残りの順番は見ない。
-    /// 足した・並べ替えた・総入れ替え (1 → N の復元)・置き換え (数が同じ) は閉じたことにしない
+    /// 足した・並べ替えた・総入れ替え (1 → N の復元)・置き換え (数が同じ) は閉じたことにしない。
+    /// 前提: consumer は 1 回の閉じる操作 (× の確認・⌘W・メニュー) で一覧を 1 回で書き換える。途中の並び (抜いてから足す等) を
+    /// 挟むと、閉じたことと置き換えを見分けられない
     static func isClose<ID: Hashable>(from previous: [ID], to current: [ID]) -> Bool {
         guard current.count < previous.count else { return false }
         let previousIDs = Set(previous)

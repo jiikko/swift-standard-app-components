@@ -158,7 +158,7 @@ consumer に残るもの: タブの一覧と順の持ち主、閉じる前の確
 - タブの外枠の accessibility (ボタン・選択の状態・「Close Tab」の操作) は lib が持ち、identifier を consumer が渡す口 `accessibilityIdentifier` を足した (obaket の E2E が `tab-bar.tab.<uuid>` で探す)
 - + の右に consumer の view を置く口 `trailingAccessory` (DualNote の読み込み中の表示。popover の起点にも使える) と、+ の置き方 `addButtonPlacement` (`.pinnedWhenOverflowing` は obaket の「溢れたら + をスクロールの外に出す」)
 - × をタブごとに出し分ける `canClose(item, state)` (DualNote の消せないタブ・vlc の名前の入力中)
-- 閉じたときの動き `closeAnimation: .collapse | .none` と、縮めきった知らせ `onCollapseFinished(id)` (consumer が縮める間の写しを捨てる時点)
+- 閉じたときの動き `closeAnimation: .collapse | .none` と、タブが帯から消えた知らせ `onTabRemoved(id)` (consumer がタブごとの値を捨てる時点。初版の `onCollapseFinished` から改名。下の「vlc の置き換えのレビュー」)
 - タブ全体に重ねる `tabOverlay` と、× を避ける幅 `StandardTabStripConfiguration.closeButtonReservedWidth` (vlc のダブルクリックで名前を変える範囲が余白まで届く)
 - 送り直しは表示の幅の変化と、縮めきった後 (選んでいたタブを閉じたとき)
 - ドラッグの型は文字 (`NSItemProvider(object: NSString)`) にして、consumer の Info.plist に型を宣言させない。受けるのは lib がドラッグを始めたものだけ (`validateDrop` が lib の dragging の状態を見る)
@@ -179,3 +179,19 @@ consumer に残るもの: タブの一覧と順の持ち主、閉じる前の確
 
 移行: vlc は同じ日に置き換える。obaket と DualNote は別の作業 (それぞれの repo) で置き換える。
 
+
+## vlc の置き換えのレビュー (2026-10-31)
+
+vlc を置き換えた差分を、変更前の実装と並べて反証させた (read-only の Opus 1 体)。lib 側で直したもの:
+
+- **選んだタブを送るのは隠れているときだけにした**。初版は選ぶたびに中央へ寄せていたので、見えている端のタブを押しても帯が 0.2 秒動き、
+  ダブルクリックの 2 回目が隣のタブに当たって別のタブの名前の変更が始まりえた (vlc の変更前は anchor 無しで、見えていれば動かなかった)。
+  タブごとにスクロールの見えている所に対する左右の端を覚え (`StandardTabStripModel.needsScroll`)、全部見えていれば送らない。
+  中央へ寄せるのは隠れている・切れているときだけ (obaket の実測「anchor 無しだと端のタブが切れて残る」はこちらで残す)
+- **`onCollapseFinished` を `onTabRemoved` に改名し、縮めずに外れたタブ (置き換え・総入れ替え・縮めない設定) もすぐ知らせる**。
+  初版は縮めたタブしか知らせず、consumer がタブごとに持つ値 (vlc の題名の写し) が [a] → [b] の置き換えで残り続けた
+- 消した vlc のテストのうち lib に無かった境界 (ちょうど中央は後ろ・幅が負なら前・縮めるタブが無ければ前の並びを見ない) を足した
+- 行き先の無かった教訓をコメントに移した (帯の下端に寄せて切る理由・閉じたと見分ける前提 = 一覧を 1 回で書き換える)
+
+採らなかったもの (consumer ごとに見る): × と + の色 (`Color.secondary`) を consumer の色にできるか、名前の入力中のタブにも × の枠が残って入力欄が狭いこと、
+入力中のタブにも「Close Tab」の読み上げの操作が付くこと。
