@@ -9,7 +9,7 @@
 | API | 役割 |
 |---|---|
 | `Toast` | 1 件の toast データ。`id` / `style` / `title` / `message` / `duration` / `action` / `uniqueKey` / `copiesMessage` を保持。同じ `id`、または同じ `uniqueKey` (重複させたくない通知に付けるキー) で再 `show` すると、表示中かキューの同じものを置き換える (元の id を引き継ぎ、表示中なら表示時間を数え直す。ホバーで止めている間は止めたまま) |
-| `Toast.Style` | 見た目バリエーション (`success` / `error` / `warning` / `info`)。Material Design 300〜400 系の固定パレット (緑 / 赤 / アンバー / 青) と SF Symbol アイコン (`checkmark.circle.fill` 等) が紐付く。前景色は常に白でコントラスト確保 |
+| `Toast.Style` | 見た目バリエーション (`success` / `error` / `warning` / `info`)。固定のパレット (緑 / 赤 / アンバー / 青。Light / Dark で同じ) と SF Symbol アイコン (`checkmark.circle.fill` 等) が紐付く。文字は warning が暗い色、他は白で、背景との差は message の薄さ込みで 4.5:1 以上 (`ToastTests` が検査) |
 | `ToastAction` | 任意のアクションボタン (例: 「Finder で開く」)。`title` + `@Sendable () -> Void` の `handler`。タップで `handler` が走り、その後 toast は自動 dismiss |
 | `ToastText` | `message` 用の sum 型。リテラルは `.localized(LocalizedStringResource)` (catalog 経由)、動的値は `.verbatim(String)` で **明示的に** 分離。catalog バイパスをコンパイル時に潰す目的 (#340 / #344) |
 

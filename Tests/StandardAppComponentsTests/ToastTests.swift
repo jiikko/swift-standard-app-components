@@ -64,12 +64,41 @@ final class ToastTests: XCTestCase {
         XCTAssertEqual(descriptions.count, 4)
     }
 
-    func testStyleForegroundColorIsAlwaysWhite() {
-        // 背景色のコントラストを優先して全 case で前景は白に固定する設計。
-        let white = String(describing: Color.white)
+    func testStyleTextContrastIsReadable() throws {
+        // message は前景色を 0.9 の薄さで描く (ToastView の Layout.messageOpacity)。薄くした後でも WCAG の小さい文字の基準 4.5:1 を満たす
         for style: Toast.Style in [.success, .error, .warning, .info] {
-            XCTAssertEqual(String(describing: style.foregroundColor), white)
+            let background = try XCTUnwrap(srgbComponents(of: style.backgroundColor))
+            let foreground = try XCTUnwrap(srgbComponents(of: style.foregroundColor))
+            let message = blend(foreground, over: background, alpha: 0.9)
+            XCTAssertGreaterThanOrEqual(contrastRatio(message, background), 4.5, "\(style)")
         }
+    }
+
+    private typealias RGB = (red: Double, green: Double, blue: Double)
+
+    private func srgbComponents(of color: Color) -> RGB? {
+        guard let srgb = NSColor(color).usingColorSpace(.sRGB) else { return nil }
+        return (Double(srgb.redComponent), Double(srgb.greenComponent), Double(srgb.blueComponent))
+    }
+
+    private func blend(_ top: RGB, over bottom: RGB, alpha: Double) -> RGB {
+        (
+            top.red * alpha + bottom.red * (1 - alpha),
+            top.green * alpha + bottom.green * (1 - alpha),
+            top.blue * alpha + bottom.blue * (1 - alpha)
+        )
+    }
+
+    private func contrastRatio(_ lhs: RGB, _ rhs: RGB) -> Double {
+        func linear(_ value: Double) -> Double {
+            value <= 0.039_28 ? value / 12.92 : pow((value + 0.055) / 1.055, 2.4)
+        }
+        func luminance(_ rgb: RGB) -> Double {
+            0.212_6 * linear(rgb.red) + 0.715_2 * linear(rgb.green) + 0.072_2 * linear(rgb.blue)
+        }
+        let lighter = max(luminance(lhs), luminance(rhs))
+        let darker = min(luminance(lhs), luminance(rhs))
+        return (lighter + 0.05) / (darker + 0.05)
     }
 
     // MARK: - accessibility label (model に切り出した pure 計算)

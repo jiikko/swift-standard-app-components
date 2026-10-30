@@ -100,17 +100,22 @@ public struct Toast: Identifiable, Equatable {
 
 // MARK: - Toast Style
 
-/// Material Design 300〜400 系を参考にした柔らかい色合い。
-/// View / View modifier で `style.iconName` / `style.backgroundColor` を参照する。
+/// 背景色。文字 (`foregroundColor`) との差を、message の薄さ (0.9) を掛けた後でも 4.5:1 以上に保つ
+/// (WCAG の小さい文字の基準。`ToastTests.testStyleTextContrastIsReadable` が見る)。
+/// success / error / info は白い文字に合わせて Material Design 800 系の濃い色、warning はアンバーのまま暗い文字にする
+/// (アンバーに白い文字は 1.7:1 で読めない。以前は全部 300〜400 系の淡い色に白い文字で、どれも 1.7〜3.0:1 だった)。
+/// 背景も文字も固定の色なので、Light / Dark で同じ見え方になる。
 private enum ToastColorComponents {
-    /// #66BB6A Soft Green
-    static let successGreen = (red: 0.4, green: 0.733, blue: 0.416)
-    /// #E57373 Soft Red
-    static let errorRed = (red: 0.898, green: 0.451, blue: 0.451)
-    /// #FFB74D Soft Amber
+    /// #2B7330 (Green 800 の #2E7D32 は message の薄さを掛けると 4.49:1 で届かないので少し暗くした)
+    static let successGreen = (red: 0.169, green: 0.451, blue: 0.188)
+    /// #C62828 Red 800
+    static let errorRed = (red: 0.776, green: 0.157, blue: 0.157)
+    /// #FFB74D Amber (暗い文字で使う)
     static let warningAmber = (red: 1.0, green: 0.718, blue: 0.302)
-    /// #64B5F6 Soft Blue
-    static let infoBlue = (red: 0.392, green: 0.710, blue: 0.965)
+    /// #1565C0 Blue 800
+    static let infoBlue = (red: 0.082, green: 0.396, blue: 0.753)
+    /// #212121 warning の文字
+    static let darkText = (red: 0.129, green: 0.129, blue: 0.129)
 }
 
 extension Toast {
@@ -131,7 +136,7 @@ extension Toast {
             }
         }
 
-        /// 背景色 (Material Design 300〜400 系)。
+        /// 背景色。文字との差の決め方は `ToastColorComponents`。
         public var backgroundColor: Color {
             switch self {
             case .success:
@@ -149,8 +154,16 @@ extension Toast {
             }
         }
 
-        /// 前景色 (アイコン / 文字)。背景色とのコントラストを優先して常に白。
-        public var foregroundColor: Color { .white }
+        /// 前景色 (アイコン / 文字)。warning は暗い文字、それ以外は白 (背景との差の決め方は `ToastColorComponents`)。
+        public var foregroundColor: Color {
+            switch self {
+            case .warning:
+                let comp = ToastColorComponents.darkText
+                return Color(red: comp.red, green: comp.green, blue: comp.blue)
+            case .success, .error, .info:
+                return .white
+            }
+        }
     }
 }
 
