@@ -82,3 +82,100 @@ consumer に残るもの: タブの lifecycle (生成/破棄/選択/並べ替え
 - 本 lib 既存: `DoubleClickDetector` (`Sources/StandardAppComponents/Gesture/`) — タブの single 即時クリックで利用するパターンの起点
 - API 境界: `docs/api-boundaries.md` の「提供しない API」(`MenuBarAgent` / `StandardEmptyStateView` の除外理由) と「小さな UI primitive」の判定軸
 - 既存 issue `done/003` — 「複数 app で同形を確認してから lib 化を検討する」立て付けの先例
+
+---
+
+## 決定 (2026-10-31): 採用する
+
+ユーザー指示 (2026-10-31): vlc-multi-video-player のタブを SAC へ移し、obaket でも使う。DualNote のメモ帳のプロジェクトのタブも同じ種類。
+
+「2 つ目の consumer が同じ形で要るようになってから」の条件を、3 つの consumer の実装を読んで確かめた (2026-10-31):
+
+| 要素 | vlc (WorkspaceTabBar) | obaket (TabBarView) | DualNote (ProjectTabBarView) |
+|---|---|---|---|
+| 選んでいるタブを見える所へ送る (追加・選択・幅の変化) | あり (ScrollViewReader、次の main の回) | あり (同じ形 + 中央に寄せる + 幅の変化で寄せ直す) | なし (送らない) |
+| ドラッグで並べ替え (hover で並びを動かす live move) | あり (DropDelegate、左右半分で前後) | あり (DropDelegate、index の前後) | あり (dropDestination + 末尾の drop 先) |
+| hover で × を出す・+ を並びの後ろ | あり | あり | + あり・削除は右クリック等 |
+| 閉じたタブを幅 0 まで縮めて消す | あり | なし | なし |
+| 見た目 | Chrome 風 (本体と同じ色の塗りで下端をつなぐ) | 角丸の薄い塗り | 上・左右の枠線 |
+| 名前の変更 | ダブルクリック (タイトルバーの行なので app 固有の受け方) | なし | ダブルクリック (DoubleClickDetector) |
+
+lib に置くのは「表示 + ジェスチャ」まで。タブの生成・破棄・選択・並べ替えの確定・永続化・名前・閉じる前の確認は consumer の callback に残す (本 issue の論点のとおり)。
+見た目は 1 つ (Chrome 風) に揃える。consumer ごとの見た目の差し替えの口は持たない (色の 1 つだけ受ける)。
+
+## API (案)
+
+```swift
+public struct StandardTabStrip<Item: Identifiable, Label: View, MenuItems: View>: View {
+    public init(
+        _ items: [Item],
+        activeID: Item.ID?,
+        selectedFill: Color,                                   // 選んでいるタブの塗り。タブの下の本体と同じ色を渡す (下端でつながって見える)
+        onSelect: @escaping (Item.ID) -> Void,
+        onClose: ((Item.ID) -> Void)? = nil,                   // nil なら × を出さない。確認を挟むかは consumer
+        onAdd: (() -> Void)? = nil,                            // nil なら + を出さない
+        onMove: ((_ moving: Item.ID, _ target: Item.ID, _ placement: StandardTabMovePlacement) -> Void)? = nil,  // nil なら並べ替えない
+        canDrag: @escaping (Item) -> Bool = { _ in true },     // 名前の変更中などに止める
+        @ViewBuilder label: @escaping (Item, StandardTabState) -> Label,      // タブの中身 (アイコン・題名・入力欄)
+        @ViewBuilder contextMenu: @escaping (Item) -> MenuItems
+    )
+}
+
+public enum StandardTabMovePlacement: Sendable { case before, after }
+
+public struct StandardTabState: Equatable, Sendable {
+    public let isActive: Bool
+    public let isHovered: Bool
+    public let isDragging: Bool
+    /// 閉じて縮めている途中 (この item は consumer の items にもう無い。描くための値は lib が最後に受け取った item)
+    public let isClosing: Bool
+}
+```
+
+lib が持つもの:
+- 並び: 横スクロールの中にタブと + を並べる。タブの幅は 72〜170pt、高さ 30pt、行の下端に揃える
+- 見た目: 選んでいるタブを `selectedFill` で塗り、上の角を丸め、下端の両脇を反らせる (Chrome)。隣り合う選んでいないタブの間に区切り線、hover で薄い塗り、hover で ×
+- 選んでいるタブを見える所へ送る: `activeID` と行の幅が変わったら、次の main actor の番で `scrollTo(anchor: .center)` (obaket の実測: その場では幅が決まる前で効かない / anchor 無しだと端で切れる)
+- 閉じたときのアニメーション: items から抜けた (閉じた) タブを並びに残して幅を 0 まで縮める。足す・並べ替え・総入れ替えのときは縮めない (vlc の WorkspaceTabClosing をそのまま移す)
+- ドラッグの並べ替え: タブの中身を drag source にし、hover した相手のタブの左右半分で前後を決めて `onMove` を呼ぶ (同じ組の連続の hover は 1 回だけ)。
+  item provider は lib 固有の型で `.ownProcess` に限る (他のアプリの文字のドラッグを受けない)
+- クリック: タブを押したら `onSelect`。ダブルクリック・名前の変更は持たない (consumer が `label` の中で受ける。vlc はタイトルバーの行なので、ウィンドウの拡大と取り合う app 固有の受け方が要る)
+- 文言: × の help「Close Tab」、+ の help「New Tab」(lib の catalog に ja を持ち、requiredKeys に足す)
+
+consumer に残るもの: タブの一覧と順の持ち主、閉じる前の確認、最後の 1 枚を閉じたときの扱い (obaket はウィンドウを閉じる)、名前の変更 (入力欄は `label` の中)、題名の中身 (アイコン・spinner・pill)、
+閉じて縮めている間に描く値 (lib は最後に受け取った item を `label` に渡す。item が live な model を指すなら、consumer が `isClosing` で写しを描く)。
+
+## 移行の順
+
+1. lib に `StandardTabStrip` を足す (vlc の実装から、上の lib の範囲を切り出す)。純粋な判断 (閉じたかの見分け・縮めているタブの差し込み位置・ドラッグの前後) はテストを持って移す
+2. vlc を置き換える (見た目・挙動は今と同じ)
+3. obaket を置き換える (見た目は角丸 → Chrome 風に変わる。`ViewThatFits` で並べる / スクロールを切り替える obaket の挙動は lib に無いので、移す前に要否を決める)
+4. DualNote を置き換える (名前の変更の外側クリックの確定・+ の popover・末尾の drop 先・削除の確認は consumer に残る。見た目は枠線 → Chrome 風)
+
+## 設計の反証レビュー (2026-10-31、Opus。read-only) と、受けて直した API
+
+指摘 14 件のうち、採ったもの (実装に入れた):
+- タブの外枠の accessibility (ボタン・選択の状態・「Close Tab」の操作) は lib が持ち、identifier を consumer が渡す口 `accessibilityIdentifier` を足した (obaket の E2E が `tab-bar.tab.<uuid>` で探す)
+- + の右に consumer の view を置く口 `trailingAccessory` (DualNote の読み込み中の表示。popover の起点にも使える) と、+ の置き方 `addButtonPlacement` (`.pinnedWhenOverflowing` は obaket の「溢れたら + をスクロールの外に出す」)
+- × をタブごとに出し分ける `canClose(item, state)` (DualNote の消せないタブ・vlc の名前の入力中)
+- 閉じたときの動き `closeAnimation: .collapse | .none` と、縮めきった知らせ `onCollapseFinished(id)` (consumer が縮める間の写しを捨てる時点)
+- タブ全体に重ねる `tabOverlay` と、× を避ける幅 `StandardTabStripConfiguration.closeButtonReservedWidth` (vlc のダブルクリックで名前を変える範囲が余白まで届く)
+- 送り直しは表示の幅の変化と、縮めきった後 (選んでいたタブを閉じたとき)
+- ドラッグの型は文字 (`NSItemProvider(object: NSString)`) にして、consumer の Info.plist に型を宣言させない。受けるのは lib がドラッグを始めたものだけ (`validateDrop` が lib の dragging の状態を見る)
+- 取り消したドラッグの直後のクリックも選択に使う (vlc は 1 回捨てていた)
+- タブの幅・高さ・help の文言・縮める animation は `StandardTabStripConfiguration` で変えられる。callback は `@MainActor`。任意の口は `AnyView` を返す closure で受け、generic を増やさない
+
+ユーザーの決定 (2026-10-31): 見た目は Chrome 風 1 つに揃える (obaket・DualNote の見た目は変わる)。
+
+採らなかったもの:
+- id を KeyPath で受ける init: Identifiable にした値の型を consumer が作る方が、label に渡す値 (縮める間の写し) の扱いと揃う
+- `.disabled` の外がけで hover・drop が止まるかの確認: consumer ごとに確かめる (DualNote の移行のときに見る)
+
+## 実装 (2026-10-31)
+
+`Sources/StandardAppComponents/Tabs/`: `StandardTabStrip` (並べ方・入力の受け方)、`StandardTabStripModel` (hover・ドラッグ・幅・縮めている間の並びと値。
+縮めきった後始末が古い view の値を見ないよう class に置いた)、`StandardTabChrome` (1 枚の見た目)、`StandardTabDropDelegate`、`StandardTabClosing` (純粋な判断。テスト 10 本)、
+`StandardTabStripTypes` (`StandardTabState` / `StandardTabStripConfiguration` / `StandardTabShape`)。文言「Close Tab」「New Tab」を catalog と requiredKeys に足した。
+
+移行: vlc は同じ日に置き換える。obaket と DualNote は別の作業 (それぞれの repo) で置き換える。
+

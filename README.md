@@ -156,6 +156,7 @@ UI 非依存のロギング product。**ログの入口と subsystem / category 
 | Toast | `Toast`, `ToastText`, `ToastManaging` / `ToastManager`, `ToastView`, `View.standardToastContainer(_:)` |
 | 確認 / 進捗 | `StandardActionButton`, `View.standardActionConfirmation(...)`, `View.standardBlockingProgressOverlay(...)` |
 | ウィンドウ / 外観 | `WindowBackgroundView`, `View.autoSaveWindowFrame(name:)`, `StandardAppearanceMode`, `View.applyAppAppearance(_:)` |
+| タブの帯 | `StandardTabStrip` (Chrome 風のタブ。選ぶ・閉じる・足す・ドラッグで並べ替え・見える所へ送る・閉じたタブを縮めて消す。lifecycle は callback で consumer に残す) |
 | タイトルバーの切り替え | `StandardGlassSegmentedPicker` (自前のタイトルバーに置く、macOS 26 のツールバーと同じ見え方のセグメント。26 以降は Liquid Glass) |
 | view-local helper | `DoubleClickDetector` (即時 single + ダブルクリック起動を両立。位置 / id の 2 モード) |
 | ローカライズ検証 | `StandardAppComponentsLocalization.validateRequiredKeys()` |

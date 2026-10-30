@@ -43,6 +43,9 @@ public enum StandardAppComponentsLocalization {
         "Cancel",
         // Toast (context menu)
         "Copy Message",
+        // StandardTabStrip
+        "Close Tab",
+        "New Tab",
         // Generic section header (lib screenshot demos / consumer 側 misc section にも使える)
         "Other"
     ]
