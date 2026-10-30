@@ -1,4 +1,5 @@
 import SwiftUI
+import UniformTypeIdentifiers
 
 /// タブの状態 (`label` / `tabOverlay` / `canClose` に渡す)
 public struct StandardTabState: Equatable, Sendable {
@@ -36,6 +37,10 @@ public struct StandardTabStripConfiguration: Sendable {
     public var closeHelp: String?
     /// + の help。nil なら lib の「New Tab」
     public var addHelp: String?
+    /// ドラッグで並べ替えるときの型。既定は文字 (consumer の Info.plist に型を宣言しなくてよい)。
+    /// 同じウィンドウに文字やファイルを受ける drop 先があり、タブのドラッグをそこに落とされたくないなら、consumer が宣言した専用の型を渡す
+    /// (受け渡しは `.ownProcess` に限る)
+    public var dragType: UTType
 
     public init(
         tabWidth: ClosedRange<CGFloat> = 72...170,
@@ -44,7 +49,8 @@ public struct StandardTabStripConfiguration: Sendable {
         collapseAnimation: Animation = .easeInOut(duration: 0.2),
         addButtonPlacement: AddButtonPlacement = .inline,
         closeHelp: String? = nil,
-        addHelp: String? = nil
+        addHelp: String? = nil,
+        dragType: UTType = .plainText
     ) {
         self.tabWidth = tabWidth
         self.tabHeight = tabHeight
@@ -53,6 +59,17 @@ public struct StandardTabStripConfiguration: Sendable {
         self.addButtonPlacement = addButtonPlacement
         self.closeHelp = closeHelp
         self.addHelp = addHelp
+        self.dragType = dragType
+    }
+
+    /// ドラッグの item provider。中身は使わない (並べ替えは hover の live move で行い、相手は lib の dragging の状態で確かめる)
+    func makeDragItemProvider() -> NSItemProvider {
+        let provider = NSItemProvider()
+        provider.registerDataRepresentation(forTypeIdentifier: dragType.identifier, visibility: .ownProcess) { completion in
+            completion(Data(Self.dragPayload.utf8), nil)
+            return nil
+        }
+        return provider
     }
 
     /// タブの右端から × の外側までの幅。`tabOverlay` で × を避けるときに右をこれだけ空ける

@@ -100,7 +100,7 @@ public struct StandardTabStrip<Item: Identifiable, Label: View>: View {
                 )
             }
             // タブの隙間や + など、どのタブにも乗らない所へ drop されたときにドラッグの状態を片付ける (タブの drop 先が優先される)
-            .onDrop(of: [.text], isTargeted: nil) { _ in
+            .onDrop(of: [configuration.dragType], isTargeted: nil) { _ in
                 let wasDragging = model.draggingID != nil
                 model.resetDrag()
                 return wasDragging
@@ -218,9 +218,7 @@ public struct StandardTabStrip<Item: Identifiable, Label: View>: View {
                 .modifier(TabDragSource(isEnabled: actions.onMove != nil && actions.canDrag(item)) {
                     model.draggingID = id
                     model.lastMove = nil
-                    // 中身は使わない (並べ替えは hover の live move で行い、相手は lib の dragging の状態で確かめる)。
-                    // 文字の型にするのは、consumer の Info.plist に型を宣言させないため
-                    return NSItemProvider(object: StandardTabStripConfiguration.dragPayload as NSString)
+                    return configuration.makeDragItemProvider()
                 }),
             isActive: tabState.isActive,
             isHovered: tabState.isHovered,
@@ -248,7 +246,7 @@ public struct StandardTabStrip<Item: Identifiable, Label: View>: View {
         .onHover { hovering in
             model.hoveredID = hovering ? id : (model.hoveredID == id ? nil : model.hoveredID)
         }
-        .onDrop(of: [.text], delegate: StandardTabDropDelegate(
+        .onDrop(of: [configuration.dragType], delegate: StandardTabDropDelegate(
             targetID: id,
             tabWidth: model.width(for: id, fallback: configuration.tabWidth.lowerBound),
             draggingID: Bindable(model).draggingID,
