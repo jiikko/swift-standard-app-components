@@ -27,9 +27,10 @@ public struct StandardSidebarDividerGrabArea: NSViewRepresentable {
 
     public func updateNSView(_ nsView: NSView, context: Context) {}
 
-    /// `window` の中で、最初の列がサイドバーの `NSSplitView` (`NavigationSplitView` が作る分割) を探す。無ければ nil
+    /// `window` の中で、最初の列がサイドバーの `NSSplitView` (`NavigationSplitView` が作る分割) を探す。無ければ nil。
+    /// サイドバーの今の幅は `arrangedSubviews.first` の幅 (consumer の検査・計測の道具からも使う)
     @MainActor
-    static func sidebarSplitView(in window: NSWindow) -> NSSplitView? {
+    public static func sidebarSplitView(in window: NSWindow) -> NSSplitView? {
         guard let root = window.contentView else { return nil }
         var queue: [NSView] = [root]
         while !queue.isEmpty {
