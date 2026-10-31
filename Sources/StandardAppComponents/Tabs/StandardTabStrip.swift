@@ -160,7 +160,9 @@ public struct StandardTabStrip<Item: Identifiable, Label: View>: View {
             ScrollView(.horizontal) {
                 tabRow(entries: entries, appearing: appearing, includesTrailingControls: includesTrailingControls)
             }
-            .scrollIndicators(.hidden)
+            // .hidden にしない: システムの設定が「スクロールバーを常に表示」(マウスをつないだときの既定) だと .hidden は効かず、
+            // タブの下に横のスクロールバーが出て、帯が太り、選んでいるタブと本体の間が切れる (obaket issue 1337 の実アプリで確認)
+            .scrollIndicators(.never)
             // 選んでいるタブが隠れていたら見える所へ送る (足したタブ・番号で選んだタブ・復元・ウィンドウの幅の変化)。
             // その場で送ると、足したタブの位置が決まる前で効かないので、次の main actor の番で送る。
             // 中央に寄せる (寄せないと端のタブが途中で切れて残る)。見るのは表示の幅 (中身の幅だと縮めている毎フレームで送り直す)
