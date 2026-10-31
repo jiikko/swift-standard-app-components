@@ -22,6 +22,8 @@ struct StandardTabChrome<Content: View>: View {
                 // hover の時だけ見せる。場所は常に確保して、出し入れで題名が動かないようにする
                 .opacity(showsClose && isHovered && !isAnyDragging ? 1 : 0)
                 .disabled(!showsClose || isAnyDragging)
+                // 見えていない × は読み上げない (閉じる操作はタブ自身の「Close Tab」の操作で届く)
+                .accessibilityHidden(!(showsClose && isHovered && !isAnyDragging))
         }
         // ドラッグ中のタブは中身だけを薄くする (塗りまで薄くすると、本体との境の線が透けてつながりが切れる)
         .opacity(isDragging ? 0.45 : 1)

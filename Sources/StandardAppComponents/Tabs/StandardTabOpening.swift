@@ -5,7 +5,8 @@ import Foundation
 /// 足したタブだけを動かして出す。総入れ替え (ウィンドウの復元・1 → N) や置き換えまで動かすと、帯全体が一斉に出てくる。
 enum StandardTabOpening {
     /// 前に描いた並びから、タブが足された (いくつか増え、前に在ったタブは全部残っている) か。残りの順番は見ない。
-    /// 閉じた・並べ替えた・総入れ替え・置き換えは足したことにしない。前に何も描いていない (最初の描画) も足したことにしない
+    /// 閉じた・並べ替えた・総入れ替え・置き換えは足したことにしない。前に何も描いていない (最初の描画) も足したことにしない。
+    /// 0 枚から足した 1 枚目も最初の描画と見分けず動かさない (帯が動きの中で現れたとき、全部のタブが出直さないように)
     static func isOpen<ID: Hashable>(from previous: [ID], to current: [ID]) -> Bool {
         guard !previous.isEmpty, current.count > previous.count else { return false }
         let currentIDs = Set(current)

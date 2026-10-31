@@ -36,6 +36,19 @@ final class StandardTabStripModelTests: XCTestCase {
         XCTAssertTrue(model.needsScroll(to: 1))
     }
 
+    // MARK: - 足したタブ
+
+    func test_閉じたタブを縮めている途中に足したタブも足したと見る() {
+        // 見分けは consumer の一覧 (縮めている途中のタブを含まない) で比べる。縮めている途中のタブを含む並びと比べると、
+        // 閉じたタブが今の一覧に無いので置き換えと見て、足したタブが動かない
+        let model = StandardTabStripModel<Tab>()
+        model.start(with: [Tab(id: 1), Tab(id: 2)])
+        model.itemsDidChange(
+            [Tab(id: 1)], displayed: [1, 2], collapses: true, fallbackWidth: 72, animation: .default, onTabRemoved: nil
+        )
+        XCTAssertEqual(model.openedIDs(for: [Tab(id: 1), Tab(id: 3)]), [3])
+    }
+
     // MARK: - タブが外れた知らせ
 
     func test_縮めずに外れたタブはすぐ知らせる() {
