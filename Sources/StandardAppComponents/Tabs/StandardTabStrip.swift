@@ -86,19 +86,21 @@ public struct StandardTabStrip<Item: Identifiable, Label: View>: View {
 
     public var body: some View {
         let entries = model.entries(for: items, collapses: collapses)
-        let opensTabs = configuration.opens && !model.openedIDs(for: items).isEmpty
-        layout(entries: entries, opensTabs: opensTabs)
+        let openedIDs = configuration.opens ? model.openedIDs(for: items) : []
+        // 入るときに足したタブの transition を付けるタブ: この描画で足したものと、出す動きがまだ終わっていないもの
+        let appearing = model.appearingIDs.union(openedIDs)
+        layout(entries: entries, appearing: appearing)
             // 足した描画だけを動かす (足したタブの transition と、右のタブ・+ のずれ)。consumer が withAnimation で包まなくても動く。
             // 閉じた・並べ替えた・復元した描画には付けない (閉じたタブは model が縮め、並べ替えはドラッグの delegate が動かす)
             // consumer が中身の差し替えを動かさないために disablesAnimations の transaction で一覧を書き換えていても、帯の中だけは動かす
             // (obaket は中央ペインの表を動かさないためにそうしている)。
             .transaction(value: items.map(\.id)) { transaction in
-                guard opensTabs else { return }
+                guard !openedIDs.isEmpty else { return }
                 transaction.disablesAnimations = false
                 transaction.animation = configuration.appearAnimation
                 let model = model
                 transaction.addAnimationCompletion {
-                    MainActor.assumeIsolated { model.settledOpenCount += 1 }
+                    MainActor.assumeIsolated { model.finishAppearing(openedIDs) }
                 }
             }
             // 置き場所より背が高くなっても、帯の下端に寄せて切る。切らないと選んでいるタブの塗りが上へ伸び、
@@ -111,6 +113,7 @@ public struct StandardTabStrip<Item: Identifiable, Label: View>: View {
                     items,
                     displayed: entries.map(\.id),
                     collapses: collapses,
+                    opens: configuration.opens,
                     fallbackWidth: configuration.tabWidth.lowerBound,
                     animation: configuration.collapseAnimation,
                     onTabRemoved: actions.onTabRemoved
@@ -131,19 +134,19 @@ public struct StandardTabStrip<Item: Identifiable, Label: View>: View {
     // MARK: - 並べ方
 
     @ViewBuilder
-    private func layout(entries: [StandardTabClosing.Entry<Item.ID>], opensTabs: Bool) -> some View {
+    private func layout(entries: [StandardTabClosing.Entry<Item.ID>], appearing: Set<Item.ID>) -> some View {
         switch configuration.addButtonPlacement {
         case .inline:
-            scrollingTabs(entries: entries, opensTabs: opensTabs, includesTrailingControls: true)
+            scrollingTabs(entries: entries, appearing: appearing, includesTrailingControls: true)
         case .pinnedWhenOverflowing:
             // 収まるときはタブの直後に + を並べ、溢れたときだけ + をスクロールの外 (右端) に出す (タブが多くても + が見える)
             ViewThatFits(in: .horizontal) {
                 HStack(spacing: 0) {
-                    tabRow(entries: entries, opensTabs: opensTabs, includesTrailingControls: true)
+                    tabRow(entries: entries, appearing: appearing, includesTrailingControls: true)
                     Spacer(minLength: 0)
                 }
                 HStack(spacing: 0) {
-                    scrollingTabs(entries: entries, opensTabs: opensTabs, includesTrailingControls: false)
+                    scrollingTabs(entries: entries, appearing: appearing, includesTrailingControls: false)
                     trailingControls
                 }
             }
@@ -151,11 +154,11 @@ public struct StandardTabStrip<Item: Identifiable, Label: View>: View {
     }
 
     private func scrollingTabs(
-        entries: [StandardTabClosing.Entry<Item.ID>], opensTabs: Bool, includesTrailingControls: Bool
+        entries: [StandardTabClosing.Entry<Item.ID>], appearing: Set<Item.ID>, includesTrailingControls: Bool
     ) -> some View {
         ScrollViewReader { proxy in
             ScrollView(.horizontal) {
-                tabRow(entries: entries, opensTabs: opensTabs, includesTrailingControls: includesTrailingControls)
+                tabRow(entries: entries, appearing: appearing, includesTrailingControls: includesTrailingControls)
             }
             .scrollIndicators(.hidden)
             // 選んでいるタブが隠れていたら見える所へ送る (足したタブ・番号で選んだタブ・復元・ウィンドウの幅の変化)。
@@ -178,7 +181,7 @@ public struct StandardTabStrip<Item: Identifiable, Label: View>: View {
     }
 
     private func tabRow(
-        entries: [StandardTabClosing.Entry<Item.ID>], opensTabs: Bool, includesTrailingControls: Bool
+        entries: [StandardTabClosing.Entry<Item.ID>], appearing: Set<Item.ID>, includesTrailingControls: Bool
     ) -> some View {
         HStack(spacing: 0) {
             ForEach(Array(entries.enumerated()), id: \.element.id) { position, entry in
@@ -197,7 +200,7 @@ public struct StandardTabStrip<Item: Identifiable, Label: View>: View {
                 }
                 // 足した描画のときだけ `openAnimation` で出す。いつも付けると、consumer が withAnimation で一覧を変えたとき、
                 // 復元・置き換えのタブも出直し、閉じたタブも (同じ id の中で縮める chrome へ枝が替わるので) 一度消えてから縮む
-                .transition(opensTabs ? configuration.insertionTransition : .identity)
+                .transition(appearing.contains(entry.id) ? configuration.insertionTransition : .identity)
             }
             if includesTrailingControls {
                 trailingControls

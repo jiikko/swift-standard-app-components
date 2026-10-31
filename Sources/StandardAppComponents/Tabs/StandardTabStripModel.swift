@@ -18,7 +18,11 @@ final class StandardTabStripModel<Item: Identifiable> {
     var draggingID: Item.ID?
     var lastMove: StandardTabMoveKey<Item.ID>?
     /// 足したタブの動きが終わった回数。選んだタブを送り直す合図
-    var settledOpenCount = 0
+    private(set) var settledOpenCount = 0
+    /// 足して、出す動きがまだ終わっていないタブ。足した直後の描画の後 (`renderedIDs` を書き換えた後) の描き直しでも、
+    /// そのタブの transition を足したときのものに保つ (途中で identity に替えると、出す動きが切れるおそれがある)。
+    /// transition は入る時点にしか効かないので、描き直しのたびに読む必要は無い (観測しない)
+    @ObservationIgnored private(set) var appearingIDs: Set<Item.ID> = []
 
     private(set) var widths: [Item.ID: CGFloat] = [:]
     private(set) var closingTabs: [Item.ID: ClosingTab] = [:]
@@ -89,6 +93,12 @@ final class StandardTabStripModel<Item: Identifiable> {
         viewportWidth > 0 && span.lowerBound >= -0.5 && span.upperBound <= viewportWidth + 0.5
     }
 
+    /// 足したタブの出す動きが終わった
+    func finishAppearing(_ ids: [Item.ID]) {
+        appearingIDs.subtract(ids)
+        settledOpenCount += 1
+    }
+
     func resetDrag() {
         draggingID = nil
         lastMove = nil
@@ -99,11 +109,15 @@ final class StandardTabStripModel<Item: Identifiable> {
         _ items: [Item],
         displayed: [Item.ID],
         collapses: Bool,
+        opens: Bool = false,
         fallbackWidth: CGFloat,
         animation: Animation,
         onTabRemoved: (@MainActor (Item.ID) -> Void)?
     ) {
         let ids = items.map(\.id)
+        if opens {
+            appearingIDs.formUnion(StandardTabOpening.openedIDs(from: renderedIDs, to: ids))
+        }
         let closedIDs = collapses ? StandardTabClosing.closedIDs(from: renderedIDs, to: ids) : []
         // 縮めずに一覧から外れたタブ (縮めない設定・置き換え・総入れ替え)。すぐ外れたと知らせる (縮めるタブは縮めきってから)
         let liveIDSet = Set(ids)
@@ -121,6 +135,7 @@ final class StandardTabStripModel<Item: Identifiable> {
         renderedItems = nextItems
         widths = widths.filter { liveIDSet.contains($0.key) || closingTabs[$0.key] != nil }
         visibleSpans = visibleSpans.filter { liveIDSet.contains($0.key) }
+        appearingIDs = appearingIDs.filter { liveIDSet.contains($0) }
         if let draggingID, !liveIDSet.contains(draggingID) {
             resetDrag()
         }

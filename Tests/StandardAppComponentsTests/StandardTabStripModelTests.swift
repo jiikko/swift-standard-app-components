@@ -49,6 +49,19 @@ final class StandardTabStripModelTests: XCTestCase {
         XCTAssertEqual(model.openedIDs(for: [Tab(id: 1), Tab(id: 3)]), [3])
     }
 
+    func test_足したタブは出す動きが終わるまで出している途中と覚える() {
+        // 足した直後の描画の後 (renderedIDs を書き換えた後) の描き直しでも、足したタブの transition を保つため
+        let model = StandardTabStripModel<Tab>()
+        model.start(with: [Tab(id: 1)])
+        model.itemsDidChange(
+            [Tab(id: 1), Tab(id: 2)], displayed: [1], collapses: true, opens: true, fallbackWidth: 72, animation: .default,
+            onTabRemoved: nil
+        )
+        XCTAssertEqual(model.appearingIDs, [2])
+        model.finishAppearing([2])
+        XCTAssertEqual(model.appearingIDs, [])
+    }
+
     // MARK: - タブが外れた知らせ
 
     func test_縮めずに外れたタブはすぐ知らせる() {
