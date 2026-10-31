@@ -122,9 +122,7 @@ final class ToastManagerTests: XCTestCase {
         let manager = ToastManager()
         manager.show(Toast(style: .info, title: "Auto", duration: 0.1))
         XCTAssertNotNil(manager.currentToast)
-        try await Task.sleep(for: .seconds(0.25))  // duration 0.1 + 多少の余裕
-        XCTAssertNil(manager.currentToast)
-        manager.clearAll()
+        try await waitUntil("the toast was not dismissed after its duration") { manager.currentToast == nil }
     }
 
     // MARK: - clearAll
@@ -263,7 +261,9 @@ final class ToastManagerTests: XCTestCase {
         // 閉じた吹き出しの onHover(false) が、次の吹き出しの onHover(true) の後に届く順序を再現する。
         let manager = ToastManager()
         let first = Toast(style: .info, title: "First", duration: 10)
-        let second = Toast(style: .info, title: "Second", duration: 0.1)
+        // 出るのを待つ間に自動で消えないよう、長い duration で出す。短い duration で出すと、待ちの見る間隔
+        // (負荷の高い CI で 0.1 秒を超える) の間に出て消え、出たことを見逃す
+        let second = Toast(style: .info, title: "Second", duration: 10)
         manager.show(first)
         manager.show(second)
         manager.pauseAutoDismiss(for: first.id)
@@ -271,6 +271,8 @@ final class ToastManagerTests: XCTestCase {
         try await waitUntil("the second toast did not appear") { manager.currentToast?.id == second.id }
 
         manager.pauseAutoDismiss(for: second.id)
+        // 止めたまま短い duration に差し替える (止めている間は消去を予約しない)。停止が解かれれば 0.1 秒で消える
+        manager.show(Toast(style: .info, title: "Second", duration: 0.1).replacingID(with: second.id))
         manager.resumeAutoDismiss(for: first.id)
 
         // 「消えないこと」の確認なので、待つべき成立条件が無い。duration (0.1) の数倍待つ。
