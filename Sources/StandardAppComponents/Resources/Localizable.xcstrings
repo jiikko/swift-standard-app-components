@@ -396,6 +396,42 @@
           }
         }
       }
+    },
+    "More Apps by the Developer": {
+      "comment": "StandardAboutPanel - heading of the list of other apps in the About panel credits",
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "More Apps by the Developer"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "同じ開発者のアプリ"
+          }
+        }
+      }
+    },
+    "About %@": {
+      "comment": "StandardAboutCommands - App menu item that opens the About panel (%@ = app name)",
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "About %@"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ について"
+          }
+        }
+      }
     }
   },
   "version": "1.0"

@@ -47,7 +47,10 @@ public enum StandardAppComponentsLocalization {
         "Close Tab",
         "New Tab",
         // Generic section header (lib screenshot demos / consumer 側 misc section にも使える)
-        "Other"
+        "Other",
+        // StandardAboutPanel / StandardAboutCommands
+        "More Apps by the Developer",
+        "About %@"
     ]
 
     /// Lib のリソース bundle (`Bundle.module`) を public に露出する。
