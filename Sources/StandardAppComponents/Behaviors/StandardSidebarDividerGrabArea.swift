@@ -88,7 +88,9 @@ public struct StandardSidebarDividerGrabArea: NSViewRepresentable {
         }
 
         override func hitTest(_ point: NSPoint) -> NSView? {
-            hasSidebarSplit ? super.hitTest(point) : nil
+            // 帯の外の点では分割を探さない (探すのはウィンドウの view をなめるので、帯に当たったときだけにする)
+            guard let hit = super.hitTest(point) else { return nil }
+            return hasSidebarSplit ? hit : nil
         }
 
         override func resetCursorRects() {

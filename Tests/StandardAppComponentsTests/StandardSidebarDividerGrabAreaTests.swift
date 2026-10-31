@@ -59,6 +59,24 @@ final class StandardSidebarDividerGrabAreaTests: XCTestCase {
         controller.splitViewItems[0].maximumThickness = 500
         XCTAssertEqual(StandardSidebarDividerGrabArea.clampedPosition(550, in: split, widthRange: 200...600), 500)
     }
+
+    func test_分割が無いウィンドウでは帯がイベントを受けない() {
+        // 分割を見つけられない (OS の版で作りが違う) とき、カーソルだけ変えてクリックを奪う帯にしない
+        let grab = StandardSidebarDividerGrabArea.GrabView(frame: NSRect(x: 0, y: 0, width: 11, height: 100))
+        let container = NSView(frame: NSRect(x: 0, y: 0, width: 600, height: 400))
+        container.addSubview(grab)
+        _ = makeWindow(contentView: container)
+        XCTAssertNil(grab.hitTest(NSPoint(x: 5, y: 50)), "分割が無いのに帯がイベントを受ける")
+
+        // サイドバーの分割がある同じ形のウィンドウでは受ける (この検査が空振りしていないことの確かめ)
+        let controller = makeSplitController(firstBehavior: true)
+        let withSplit = NSView(frame: NSRect(x: 0, y: 0, width: 600, height: 400))
+        withSplit.addSubview(controller.view)
+        let grabWithSplit = StandardSidebarDividerGrabArea.GrabView(frame: NSRect(x: 0, y: 0, width: 11, height: 100))
+        withSplit.addSubview(grabWithSplit)
+        _ = makeWindow(contentView: withSplit)
+        XCTAssertIdentical(grabWithSplit.hitTest(NSPoint(x: 5, y: 50)), grabWithSplit)
+    }
 }
 
 private extension NSViewController {
