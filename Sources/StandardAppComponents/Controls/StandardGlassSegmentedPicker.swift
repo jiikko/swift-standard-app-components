@@ -60,16 +60,21 @@ public struct StandardGlassSegmentedPicker<Value: Hashable>: View {
     /// - Parameters:
     ///   - systemImage: 表示する SF Symbols の名前
     ///   - label: カーソルを乗せたときの説明 (`help`) と読み上げに使う文字 (verbatim。ローカライズが要るなら consumer が解決した文字を返す)
+    ///   - symbolSize: アイコンの大きさ (pt)。nil なら全部 13pt。アイコンによって見た目の大きさが違う (升目の絵は枠 1 つの絵より小さく見える)
+    ///     ときに値ごとに揃える。区切りの高さ (24pt) を超えない範囲で渡す
     public init(
         _ options: [Value],
         selection: Value,
         systemImage: @escaping (Value) -> String,
         label: @escaping (Value) -> String,
+        symbolSize: ((Value) -> CGFloat)? = nil,
         onSelect: @escaping (Value) -> Void
     ) {
         self.options = options
         self.selection = selection
-        self.content = { .symbol(name: systemImage($0), label: label($0)) }
+        self.content = { value in
+            .symbol(name: systemImage(value), label: label(value), size: symbolSize?(value) ?? GlassSegmentedMetrics.symbolSize)
+        }
         self.onSelect = onSelect
     }
 
@@ -106,9 +111,9 @@ public struct StandardGlassSegmentedPicker<Value: Hashable>: View {
         case .text(let title):
             Text(verbatim: title)
                 .font(.system(size: GlassSegmentedMetrics.fontSize, weight: weight))
-        case let .symbol(name, label):
+        case let .symbol(name, label, size):
             Image(systemName: name)
-                .font(.system(size: GlassSegmentedMetrics.symbolSize, weight: weight))
+                .font(.system(size: size, weight: weight))
                 .help(Text(verbatim: label))
                 .accessibilityLabel(Text(verbatim: label))
         }
@@ -118,7 +123,7 @@ public struct StandardGlassSegmentedPicker<Value: Hashable>: View {
 /// 1 つの区切りに出すもの。generic な型の中に置くと `Value` ごとに別の型になるだけなので外に出す
 private enum SegmentContent {
     case text(String)
-    case symbol(name: String, label: String)
+    case symbol(name: String, label: String, size: CGFloat)
 }
 
 /// 寸法。generic な型の中には static な格納プロパティを置けないので外に出す
