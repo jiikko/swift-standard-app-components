@@ -5,9 +5,11 @@ import SwiftUI
 ///
 /// 標準の境目 (`NSSplitView` の thin の線) は左右に約 2pt ずつしかつかめない (2026-10-31 に vlc-multi-video-player で
 /// ドラッグして測った)。consumer はこの view を境目の上に重ねて置く (位置と幅は consumer が決める。サイドバーを閉じている間は置かない)。
-/// 帯の上ではカーソルが左右の矢印になり、ドラッグすると分割の位置を動かす。幅はサイドバーの列の最小・最大
-/// (`NSSplitViewItem` の太さの上下限と、分割の delegate の制約) の中に収める (`clampedPosition`)。
-/// 🚨 `NSSplitView.setPosition` は列の最小・最大を通さない (2026-10-31 に vlc で、最大 600pt の列が 1195pt まで広がった)。
+/// 帯の上ではカーソルが左右の矢印になり、ドラッグすると分割の位置を動かす。幅は consumer が渡す範囲 (`widthRange`) に収める
+/// (`clampedPosition`)。`navigationSplitViewColumnWidth(min:ideal:max:)` に渡したのと同じ範囲を渡す。
+/// 🚨 `NSSplitView.setPosition` は列の最小・最大を通さない。`NavigationSplitView` の列の min / max は SwiftUI の中で効いていて、
+/// 分割の側 (`NSSplitViewItem` の太さの上下限・delegate の制約) には入っていない (2026-10-31 に vlc で測った: 列の min 200 に対して
+/// item の minimumThickness は 140、maximumThickness は未設定、delegate は制約を実装していない。範囲を渡す前は 600pt の最大を超えて 1195pt まで広がった)。
 /// 標準の境目のドラッグと違い、最小より左へ引いても列を畳まない。分割が見つからない (OS の版で作りが違う) ときは、
 /// 帯はイベントを受けず、カーソルも変えない (下の view へ通す)。
 ///
@@ -16,19 +18,28 @@ import SwiftUI
 ///
 /// ```swift
 /// .overlay(alignment: .topLeading) {
-///     StandardSidebarDividerGrabArea()
+///     StandardSidebarDividerGrabArea(widthRange: 200...600)
 ///         .frame(width: 11)
 ///         .offset(x: sidebarMaxX - 3)   // 境目の左 3pt〜右 8pt
 /// }
 /// ```
 public struct StandardSidebarDividerGrabArea: NSViewRepresentable {
-    public init() {}
+    private let widthRange: ClosedRange<CGFloat>
 
-    public func makeNSView(context: Context) -> NSView {
-        GrabView()
+    /// - Parameter widthRange: サイドバーの幅の範囲 (`navigationSplitViewColumnWidth` の min...max と同じ値)
+    public init(widthRange: ClosedRange<CGFloat>) {
+        self.widthRange = widthRange
     }
 
-    public func updateNSView(_ nsView: NSView, context: Context) {}
+    public func makeNSView(context: Context) -> NSView {
+        let view = GrabView()
+        view.widthRange = widthRange
+        return view
+    }
+
+    public func updateNSView(_ nsView: NSView, context: Context) {
+        (nsView as? GrabView)?.widthRange = widthRange
+    }
 
     /// `window` の中で、最初の列がサイドバーの `NSSplitView` (`NavigationSplitView` が作る分割) を探す。無ければ nil。
     /// サイドバーの今の幅は `arrangedSubviews.first` の幅 (consumer の検査・計測の道具からも使う)
@@ -48,11 +59,11 @@ public struct StandardSidebarDividerGrabArea: NSViewRepresentable {
         return nil
     }
 
-    /// サイドバーの列の幅を、列の最小・最大の中に収めた境目の位置 (サイドバーは左の列)
+    /// サイドバーの幅を `widthRange` と分割の側の上下限 (あれば) に収めた境目の位置 (サイドバーは左の列)
     @MainActor
-    static func clampedPosition(_ proposed: CGFloat, in split: NSSplitView) -> CGFloat {
-        var lower: CGFloat = 0
-        var upper = split.bounds.width
+    static func clampedPosition(_ proposed: CGFloat, in split: NSSplitView, widthRange: ClosedRange<CGFloat>) -> CGFloat {
+        var lower = widthRange.lowerBound
+        var upper = min(widthRange.upperBound, split.bounds.width)
         if let item = (split.delegate as? NSSplitViewController)?.splitViewItems.first {
             if item.minimumThickness > 0 { lower = max(lower, item.minimumThickness) }
             if item.maximumThickness > 0 { upper = min(upper, item.maximumThickness) }
@@ -65,6 +76,8 @@ public struct StandardSidebarDividerGrabArea: NSViewRepresentable {
     }
 
     final class GrabView: NSView {
+        var widthRange: ClosedRange<CGFloat> = 0...CGFloat.greatestFiniteMagnitude
+
         override var mouseDownCanMoveWindow: Bool { false }
 
         override func acceptsFirstMouse(for event: NSEvent?) -> Bool { true }
@@ -95,7 +108,10 @@ public struct StandardSidebarDividerGrabArea: NSViewRepresentable {
             let startPosition = sidebar.frame.maxX
             while let next = window.nextEvent(matching: [.leftMouseDragged, .leftMouseUp]) {
                 let proposed = startPosition + next.locationInWindow.x - startX
-                split.setPosition(StandardSidebarDividerGrabArea.clampedPosition(proposed, in: split), ofDividerAt: 0)
+                split.setPosition(
+                    StandardSidebarDividerGrabArea.clampedPosition(proposed, in: split, widthRange: widthRange),
+                    ofDividerAt: 0
+                )
                 if next.type == .leftMouseUp { break }
             }
         }
