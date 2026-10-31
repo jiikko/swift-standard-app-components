@@ -62,4 +62,48 @@ final class StandardAboutPanelTests: XCTestCase {
         XCTAssertNil(credits.attribute(.link, at: summary.location, effectiveRange: nil), "一言はリンクにしない")
         XCTAssertNil(credits.attribute(.link, at: 0, effectiveRange: nil), "見出しはリンクにしない")
     }
+
+    /// 本物の標準パネルで確かめる (作りは文書化されていないので、macOS の版が変わったらここが落ちる)
+    func test_本物の標準パネルを中心を保って広げ_使い回しでは足さず_アイコンは伸ばさない() throws {
+        let credits = NSAttributedString(string: "More Apps\nAlpha — First app (\(UUID().uuidString))")
+        NSApplication.shared.orderFrontStandardAboutPanel(options: [.credits: credits])
+        let panel = try XCTUnwrap(NSApplication.shared.windows.first {
+            StandardAboutPanel.aboutPanel($0, showing: credits.string)
+        }, "orderFront の直後 (同じ run loop の回) に、説明欄の中身でパネルが見つかる")
+        defer { panel.close() }
+        let before = panel.frame
+        let iconWidth = try XCTUnwrap(imageView(in: panel.contentView)).frame.width
+
+        XCTAssertNil(StandardAboutPanel.widenOnce(panel))
+        XCTAssertNil(StandardAboutPanel.widenOnce(panel), "同じパネルを開き直しても理由は返さない")
+
+        XCTAssertEqual(panel.frame.width, before.width + StandardAboutPanel.creditsExtraWidth, accuracy: 0.5,
+                       "2 回呼んでも 1 回分だけ広がる")
+        XCTAssertEqual(panel.frame.midX, before.midX, accuracy: 0.5, "中心を保つ")
+        XCTAssertEqual(try XCTUnwrap(imageView(in: panel.contentView)).frame.width, iconWidth, accuracy: 0.5,
+                       "アイコンの枠は伸ばさない")
+        let textView = try XCTUnwrap(textView(in: panel.contentView, showing: credits.string))
+        XCTAssertGreaterThan(textView.frame.width, before.width, "説明欄も広がる (標準の幅を超える)")
+    }
+
+    func test_作りが違うパネルは触らずに理由を返す() {
+        let panel = NSPanel(contentRect: NSRect(x: 0, y: 0, width: 284, height: 200), styleMask: [.titled],
+                            backing: .buffered, defer: true)
+        let before = panel.frame
+
+        XCTAssertEqual(StandardAboutPanel.widen(panel, by: 200), .layoutNotRecognized)
+        XCTAssertEqual(panel.frame, before)
+    }
+
+    private func imageView(in view: NSView?) -> NSImageView? {
+        guard let view else { return nil }
+        if let image = view as? NSImageView { return image }
+        return view.subviews.lazy.compactMap { self.imageView(in: $0) }.first
+    }
+
+    private func textView(in view: NSView?, showing text: String) -> NSTextView? {
+        guard let view else { return nil }
+        if let textView = view as? NSTextView, textView.string == text { return textView }
+        return view.subviews.lazy.compactMap { self.textView(in: $0, showing: text) }.first
+    }
 }
