@@ -20,6 +20,14 @@ import SwiftUI
 ///     selection: viewModel.layout,
 ///     title: \.rawValue
 /// ) { viewModel.updateLayout($0) }
+///
+/// // 文字の代わりに SF Symbols で並べる。label はカーソルを乗せたときの説明と読み上げに使う
+/// StandardGlassSegmentedPicker(
+///     GridLayout.allCases,
+///     selection: viewModel.layout,
+///     systemImage: { $0.symbolName },
+///     label: \.rawValue
+/// ) { viewModel.updateLayout($0) }
 /// ```
 ///
 /// 選んだ値の持ち主は consumer。この view は `selection` を表示し、押されたら `onSelect` を呼ぶだけで、自分では値を変えない。
@@ -28,7 +36,7 @@ import SwiftUI
 public struct StandardGlassSegmentedPicker<Value: Hashable>: View {
     private let options: [Value]
     private let selection: Value
-    private let title: (Value) -> String
+    private let content: (Value) -> SegmentContent
     private let onSelect: (Value) -> Void
 
     /// - Parameters:
@@ -44,7 +52,24 @@ public struct StandardGlassSegmentedPicker<Value: Hashable>: View {
     ) {
         self.options = options
         self.selection = selection
-        self.title = title
+        self.content = { .text(title($0)) }
+        self.onSelect = onSelect
+    }
+
+    /// 文字の代わりに SF Symbols のアイコンで並べる。
+    /// - Parameters:
+    ///   - systemImage: 表示する SF Symbols の名前
+    ///   - label: カーソルを乗せたときの説明 (`help`) と読み上げに使う文字 (verbatim。ローカライズが要るなら consumer が解決した文字を返す)
+    public init(
+        _ options: [Value],
+        selection: Value,
+        systemImage: @escaping (Value) -> String,
+        label: @escaping (Value) -> String,
+        onSelect: @escaping (Value) -> Void
+    ) {
+        self.options = options
+        self.selection = selection
+        self.content = { .symbol(name: systemImage($0), label: label($0)) }
         self.onSelect = onSelect
     }
 
@@ -52,8 +77,7 @@ public struct StandardGlassSegmentedPicker<Value: Hashable>: View {
         HStack(spacing: 0) {
             ForEach(options, id: \.self) { option in
                 let isSelected = option == selection
-                Text(verbatim: title(option))
-                    .font(.system(size: GlassSegmentedMetrics.fontSize, weight: isSelected ? .semibold : .regular))
+                segmentLabel(content(option), isSelected: isSelected)
                     .foregroundStyle(isSelected ? Color.primary : Color.secondary)
                     .lineLimit(1)
                     .padding(.horizontal, GlassSegmentedMetrics.segmentHorizontalPadding)
@@ -74,6 +98,27 @@ public struct StandardGlassSegmentedPicker<Value: Hashable>: View {
         .fixedSize()
         .modifier(GlassSegmentedSurface())
     }
+
+    @ViewBuilder
+    private func segmentLabel(_ content: SegmentContent, isSelected: Bool) -> some View {
+        let weight: Font.Weight = isSelected ? .semibold : .regular
+        switch content {
+        case .text(let title):
+            Text(verbatim: title)
+                .font(.system(size: GlassSegmentedMetrics.fontSize, weight: weight))
+        case let .symbol(name, label):
+            Image(systemName: name)
+                .font(.system(size: GlassSegmentedMetrics.symbolSize, weight: weight))
+                .help(Text(verbatim: label))
+                .accessibilityLabel(Text(verbatim: label))
+        }
+    }
+}
+
+/// 1 つの区切りに出すもの。generic な型の中に置くと `Value` ごとに別の型になるだけなので外に出す
+private enum SegmentContent {
+    case text(String)
+    case symbol(name: String, label: String)
 }
 
 /// 寸法。generic な型の中には static な格納プロパティを置けないので外に出す
@@ -83,6 +128,7 @@ private enum GlassSegmentedMetrics {
     static let segmentHorizontalPadding: CGFloat = 8
     static let inset: CGFloat = 3
     static let fontSize: CGFloat = 12
+    static let symbolSize: CGFloat = 13
 }
 
 /// カプセルの下地。macOS 26 以降はガラス、それより前は塗り
