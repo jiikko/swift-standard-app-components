@@ -32,7 +32,17 @@ struct StandardTabChrome<Content: View>: View {
         .frame(height: configuration.tabHeight)
         .background {
             if isActive {
-                StandardTabShape().fill(selectedFill)
+                let shape = StandardTabShape()
+                shape.fill(selectedFill)
+                    .overlay(alignment: .top) {
+                        if let color = configuration.activeIndicatorColor {
+                            // 上の角の丸みの内側 (上端がまっすぐな所) にだけ引く
+                            Capsule()
+                                .fill(color)
+                                .frame(height: StandardTabStripConfiguration.activeIndicatorHeight)
+                                .padding(.horizontal, shape.cornerRadius)
+                        }
+                    }
             } else if isHovered {
                 RoundedRectangle(cornerRadius: 7)
                     .fill(Color.primary.opacity(0.06))

@@ -138,7 +138,7 @@ Toast は軽い完了通知、情報通知、復旧可能なエラー通知に�
 | API | lib が提供するもの | consumer が実装するもの |
 |---|---|---|
 | `StandardTabStrip` | タブを並べる・選ぶ・閉じる (×)・足す (+)・ドラッグで並べ替える (hover で live に動かす)・選んでいるタブが隠れていたら見える所へ送る・足したタブを動かして出す (既定は薄く小さい状態から。差し替え・止めは設定。足した描画では帯の中の consumer の view の動きも有効になる)・閉じたタブを並びに残したまま幅を 0 まで縮める。見た目は Chrome 風 (選んでいるタブを本体と同じ色で塗り、下端でつなぐ) の 1 つ。タブの外枠の読み上げ (ボタン・選択・「Close Tab」の操作)・+ と × の読み上げの label | タブの一覧と順の持ち主 (`onMove` で並びを変える)・閉じる前の確認・最後の 1 枚を閉じたときの扱い・名前の変更 (入力欄は `label` の中、ダブルクリックは `tabOverlay` で受ける)・タブの中身 (アイコン・題名・spinner)・タブごとに持つ値 (縮める間に描く写しは `isClosing` の `label`、捨てる時点は `onTabRemoved`)・帯の背景と本体との境の線 (帯より奥に描く) |
-| `StandardTabStripConfiguration` / `StandardTabState` / `StandardTabShape` | 寸法・開く動きと閉じる動き・+ の置き方・help の文言・+ の identifier / `label` に渡す状態 / 選んでいるタブの形 | 値の選択 |
+| `StandardTabStripConfiguration` / `StandardTabState` / `StandardTabShape` | 寸法・開く動きと閉じる動き・+ の置き方・help の文言・+ の identifier・選んでいるタブの上端の目印の線 (`activeIndicatorColor`。既定は引かない) / `label` に渡す状態 / 選んでいるタブの形 | 値の選択 (目印の線の色はアプリのアクセント色など) |
 
 置く場所の前提: 帯の下端が本体に接し、本体が `selectedFill` と同じ色であること。
 見た目を差し替える口は持たない (色は `selectedFill` だけ)。経緯と 3 つの consumer の比較は issue 004。

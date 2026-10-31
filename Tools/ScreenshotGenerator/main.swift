@@ -232,6 +232,7 @@ enum ScreenshotGenerator {
                 items,
                 activeID: 2,
                 selectedFill: pane,
+                configuration: StandardTabStripConfiguration(activeIndicatorColor: .accentColor),
                 onSelect: { _ in },
                 onClose: { _ in },
                 onAdd: {}

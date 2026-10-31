@@ -56,6 +56,9 @@ public struct StandardTabStripConfiguration: Sendable {
     /// 同じウィンドウに文字やファイルを受ける drop 先があり、タブのドラッグをそこに落とされたくないなら、consumer が宣言した専用の型を渡す
     /// (受け渡しは `.ownProcess` に限る)
     public var dragType: UTType
+    /// 選んでいるタブの上端に引く線の色 (どれを選んでいるかの目印。タブが 1 枚のときや溢れてスクロールしているときに見つけやすくする)。
+    /// nil なら引かない
+    public var activeIndicatorColor: Color?
 
     public init(
         tabWidth: ClosedRange<CGFloat> = 72...170,
@@ -68,7 +71,8 @@ public struct StandardTabStripConfiguration: Sendable {
         closeHelp: String? = nil,
         addHelp: String? = nil,
         addButtonAccessibilityIdentifier: String? = nil,
-        dragType: UTType = .plainText
+        dragType: UTType = .plainText,
+        activeIndicatorColor: Color? = nil
     ) {
         self.tabWidth = tabWidth
         self.tabHeight = tabHeight
@@ -81,6 +85,7 @@ public struct StandardTabStripConfiguration: Sendable {
         self.addHelp = addHelp
         self.addButtonAccessibilityIdentifier = addButtonAccessibilityIdentifier
         self.dragType = dragType
+        self.activeIndicatorColor = activeIndicatorColor
     }
 
     /// ドラッグの item provider。中身は使わない (並べ替えは hover の live move で行い、相手は lib の dragging の状態で確かめる)
@@ -119,6 +124,7 @@ public struct StandardTabStripConfiguration: Sendable {
     static let horizontalPadding: CGFloat = 10
     static let closeBoxSize: CGFloat = 14
     static let contentSpacing: CGFloat = 6
+    static let activeIndicatorHeight: CGFloat = 2
     static let dragPayload = "standard-tab-strip"
 
     static var defaultCloseHelp: String {
