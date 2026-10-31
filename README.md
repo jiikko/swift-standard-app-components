@@ -4,7 +4,7 @@ SwiftUI **macOS アプリ専用** の Personal SPM。複数の macOS アプリ�
 
 ## このパッケージの位置づけ
 
-- 複数 macOS アプリで同じ形になる薄い定型処理 (Settings ウィンドウ枠 / 表示言語切替 / ログイン時起動 / メニューバー表示 / ウィンドウ挙動 / 外観適用 / Toast / 確認ダイアログ / ブロッキング進捗 / 動画再生補助 / ロギング) を集約する
+- 複数 macOS アプリで同じ形になる薄い定型処理 (Settings ウィンドウ枠 / 表示言語切替 / ログイン時起動 / メニューバー表示 / ウィンドウ挙動 / 外観適用 / Toast / 確認ダイアログ / ブロッキング進捗 / タブの帯 / タイトルバーの切り替え / 動画再生補助 / ロギング) を集約する
 - **汎用デザインシステムではない** (デザイントークン / 共通ボタン / 空状態などの広い UI kit は提供しない)
 - アプリ固有の状態管理・永続化・文言・メニュー構成・ウィンドウルーティング・業務ロジックは consumer アプリ側に残す
 
@@ -199,6 +199,14 @@ SwiftUI の offscreen screenshot generator では NSWindow chrome は完全に�
 ### ショートカット設定
 
 ![Shortcut Settings](docs/images/settings-shortcuts.png)
+
+### タブの帯 (`StandardTabStrip`)
+
+| Light | Dark |
+|---|---|
+| ![Tab Strip (Light)](docs/images/tab-strip-light.png) | ![Tab Strip (Dark)](docs/images/tab-strip-dark.png) |
+
+lib が描くのはタブと + / × まで。帯の地・下の本体・境の線は consumer が描く (見本では帯の地を一段沈め、選んでいるタブを本体と同じ色で塗って下端でつないでいる)。選んでいるタブの目印など、タブに重ねる view は `tabOverlay` で足せる。
 
 ### Toast
 

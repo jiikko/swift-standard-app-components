@@ -9,7 +9,7 @@
 // 注意:
 // - NSWindow chrome (タイトルバー / 閉じるボタン / vibrancy 背景) は SwiftUI View
 //   ベースの `ImageRenderer` では再現されない。本ツールが捕捉するのは「Settings
-//   ウィンドウ内コンテンツ」「Toast 単体」など pure SwiftUI View 部分のみ。
+//   ウィンドウ内コンテンツ」「タブの帯」「Toast 単体」など SwiftUI View 部分のみ。
 // - `applyAppAppearance` は NSWindow.appearance を更新する modifier だが、
 //   本ツール下では実 NSWindow が無いので no-op になる。Light/Dark の差は
 //   `.preferredColorScheme(_:)` で表現する。
@@ -47,6 +47,11 @@ enum ScreenshotGenerator {
             name: "settings-shortcuts",
             in: outputDir
         )
+
+        // タブの帯: 中で ScrollView を使うので ImageRenderer では描けない (hosting 経由)。
+        let tabStripSize = NSSize(width: 640, height: 96)
+        writeViaHosting(view: tabStripSample(scheme: .light), size: tabStripSize, name: "tab-strip-light", in: outputDir)
+        writeViaHosting(view: tabStripSample(scheme: .dark), size: tabStripSize, name: "tab-strip-dark", in: outputDir)
 
         // Toast 各種: Toast は pure SwiftUI なので ImageRenderer で十分。
         write(view: toastSample(.success, title: "Saved"), name: "toast-success", in: outputDir)
@@ -201,6 +206,49 @@ enum ScreenshotGenerator {
         )
         .frame(width: 560, height: 430)
         .background(Color(NSColor.windowBackgroundColor))
+    }
+
+    struct TabSampleItem: Identifiable, Equatable {
+        let id: Int
+        let symbol: String
+        let title: String
+    }
+
+    /// `StandardTabStrip` の既定の見た目 (Chrome 風)。帯の地を一段沈め、選んでいるタブを下の本体と同じ色で塗って下端でつなぐ。
+    /// 帯の地・本体・境の線は consumer が描くもの (lib は描かない) なので、ここで見本の色を置く。
+    static func tabStripSample(scheme: ColorScheme) -> some View {
+        let dark = scheme == .dark
+        let pane = dark ? Color(white: 0.17) : Color(white: 0.98)
+        let strip = dark ? Color(white: 0.10) : Color(white: 0.89)
+        let line = dark ? Color(white: 0.26) : Color(white: 0.80)
+        let items = [
+            TabSampleItem(id: 1, symbol: "folder", title: "Documents"),
+            TabSampleItem(id: 2, symbol: "photo", title: "Photos"),
+            TabSampleItem(id: 3, symbol: "film", title: "Movies"),
+            TabSampleItem(id: 4, symbol: "music.note", title: "Music"),
+        ]
+        return VStack(spacing: 0) {
+            StandardTabStrip(
+                items,
+                activeID: 2,
+                selectedFill: pane,
+                onSelect: { _ in },
+                onClose: { _ in },
+                onAdd: {}
+            ) { item, state in
+                Label(item.title, systemImage: item.symbol)
+                    .font(.system(size: 12, weight: state.isActive ? .medium : .regular))
+                    .foregroundStyle(state.isActive ? .primary : .secondary)
+                    .lineLimit(1)
+            }
+            .fixedSize(horizontal: false, vertical: true)
+            .background(alignment: .bottom) { Rectangle().fill(line).frame(height: 1) }
+            .background(strip)
+            pane
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+        .environment(\.colorScheme, scheme)
+        .preferredColorScheme(scheme)
     }
 
     // MARK: - Render to PNG (ImageRenderer route — pure SwiftUI views)
