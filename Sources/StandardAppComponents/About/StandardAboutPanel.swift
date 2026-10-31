@@ -16,11 +16,13 @@ public enum StandardAboutPanel {
     /// ストアフロントを待つ上限。超えたら分からない (nil) として、日本のみのアプリを出さずに開く
     static let storefrontTimeout: Duration = .seconds(1)
 
-    /// 他のアプリを並べたときに標準の幅 (284pt) へ足す幅。標準の幅では「名前 — 一言」が折り返す
-    /// (2026-11-01 のユーザー指示で 200pt 広げた)
-    static let creditsExtraWidth: CGFloat = 200
+    /// 他のアプリを並べたときに標準の幅 (284pt) へ足す幅。標準の幅では「名前 — 一言」が折り返す。
+    /// 2026-11-01 のユーザー指示で 200pt 広げた後、左右の余白が広いとの指示で 120pt にした
+    /// (いちばん長い行は約 324pt。説明欄 388pt で左右に約 32pt ずつ空く)
+    static let creditsExtraWidth: CGFloat = 120
 
-    /// 広げたパネル。同じ説明欄で開き直すと AppKit は同じパネルを使い回すので、2 回目は広げない (足すと 200pt ずつ広がる)
+    /// 広げたパネル。同じ説明欄で開き直すと AppKit は同じパネルを使い回すので、2 回目は広げない (足すと開くたびに広がる)。
+    /// 説明欄が違うと AppKit は別のパネル (別のオブジェクト) を作り、幅は標準に戻る (macOS 26 で実測) ので、そちらは改めて広げる
     @MainActor private static weak var widenedPanel: NSWindow?
 
     /// パネルを広げなかった理由 (`show` の `onWidenSkipped` に渡す)。パネルは標準の幅のまま開く
@@ -49,8 +51,8 @@ public enum StandardAboutPanel {
             storefrontCountryCode: country
         )
         guard !apps.isEmpty else {
-            NSApp.orderFrontStandardAboutPanel(options: [:])
-            NSApp.activate(ignoringOtherApps: true)
+            NSApplication.shared.orderFrontStandardAboutPanel(options: [:])
+            NSApplication.shared.activate(ignoringOtherApps: true)
             return
         }
         let credits = credits(
@@ -58,16 +60,16 @@ public enum StandardAboutPanel {
             languageCode: preferredLanguageCode(),
             heading: String(localized: "More Apps by the Developer", bundle: .module)
         )
-        NSApp.orderFrontStandardAboutPanel(options: [.credits: credits])
+        NSApplication.shared.orderFrontStandardAboutPanel(options: [.credits: credits])
         // orderFront は同期でパネルを作って載せるので、描画の前 (同じ run loop の回) に広げられる
-        if let panel = NSApp.windows.first(where: { aboutPanel($0, showing: credits.string) }) {
+        if let panel = NSApplication.shared.windows.first(where: { aboutPanel($0, showing: credits.string) }) {
             if let reason = widenOnce(panel) {
                 onWidenSkipped?(reason)
             }
         } else {
             onWidenSkipped?(.panelNotFound)
         }
-        NSApp.activate(ignoringOtherApps: true)
+        NSApplication.shared.activate(ignoringOtherApps: true)
     }
 
     /// まだ広げていないパネルなら `creditsExtraWidth` だけ広げる。使い回されたパネルには足さない
@@ -96,19 +98,24 @@ public enum StandardAboutPanel {
     ///
     /// 標準のパネルの幅は、中の NSStackView とその中の欄 (名前・版・説明欄) の `width == 定数` の制約で決まっていて、
     /// ウィンドウの枠を `setFrame` で広げても戻される (macOS 26 で実測。284pt のまま)。そのため制約の定数を足す。
-    /// アイコン (NSImageView) の制約は足さない (足すとアイコンの枠が横に伸びる)。
-    /// 作りは文書化されていないので、NSStackView の幅の制約が見つからなければ何もしない (標準の幅で開く)。
+    /// 足すのはパネルの幅いっぱいの欄 (`fullWidthTolerance` の内) だけで、アイコン (64pt) のような幅の決まった部品は足さない
+    /// (足すとアイコンの枠が横に伸びる。macOS が幅の決まったボタンなどを足しても伸ばさない)。
+    /// 作りは文書化されていないので、NSStackView の幅の制約が 1 本に決まらない・幅いっぱいの欄が無いときは何もしない (標準の幅で開く)。
     @MainActor
     @discardableResult
     static func widen(_ panel: NSWindow, by extra: CGFloat) -> WidenSkipReason? {
         guard let contentView = panel.contentView,
               let stack = contentView.subviews.first as? NSStackView,
-              fixedWidthConstraints(of: stack).count == 1 else {
+              case let stackWidths = fixedWidthConstraints(of: stack), stackWidths.count == 1,
+              let stackWidth = stackWidths.first?.constant else {
             return .layoutNotRecognized
         }
-        let before = panel.frame
         var constraints: [NSLayoutConstraint] = []
-        collectFixedWidthConstraints(in: contentView, into: &constraints)
+        collectFixedWidthConstraints(in: stack, into: &constraints)
+        constraints = constraints.filter { $0.constant >= stackWidth - fullWidthTolerance }
+        // stack 自身の 1 本だけなら、中の欄が想定の作りではない (stack だけ広げても欄は 284pt のまま)
+        guard constraints.count >= 2 else { return .layoutNotRecognized }
+        let before = panel.frame
         for constraint in constraints {
             constraint.constant += extra
         }
@@ -140,11 +147,12 @@ public enum StandardAboutPanel {
         }
     }
 
+    /// 幅いっぱいの欄とみなす、stack の幅との差の上限。標準のパネルの欄は stack の 284pt に対して 268pt・264pt (macOS 26 で実測)
+    static let fullWidthTolerance: CGFloat = 32
+
     @MainActor
     private static func collectFixedWidthConstraints(in view: NSView, into result: inout [NSLayoutConstraint]) {
-        if !(view is NSImageView) {
-            result += fixedWidthConstraints(of: view)
-        }
+        result += fixedWidthConstraints(of: view)
         for subview in view.subviews {
             collectFixedWidthConstraints(in: subview, into: &result)
         }

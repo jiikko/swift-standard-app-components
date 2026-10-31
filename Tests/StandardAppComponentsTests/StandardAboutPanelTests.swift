@@ -86,13 +86,50 @@ final class StandardAboutPanelTests: XCTestCase {
         XCTAssertGreaterThan(textView.frame.width, before.width, "説明欄も広がる (標準の幅を超える)")
     }
 
-    func test_作りが違うパネルは触らずに理由を返す() {
-        let panel = NSPanel(contentRect: NSRect(x: 0, y: 0, width: 284, height: 200), styleMask: [.titled],
-                            backing: .buffered, defer: true)
-        let before = panel.frame
+    /// メニューから呼ばれる経路 (ストアフロントを待つ → 開く → パネルを探す → 広げる) を通す
+    func test_showは他のアプリを並べたパネルを広げて開き_理由を返さない() async throws {
+        var reasons: [StandardAboutPanel.WidenSkipReason] = []
+        await StandardAboutPanel.show(ownBundleIdentifier: "test.not-in-catalog") { reasons.append($0) }
+        let panel = try XCTUnwrap(NSApplication.shared.windows.first { window in
+            window.isVisible && textView(in: window.contentView, containing: "Obaket") != nil
+        }, "他のアプリを並べた About パネルが開いている")
+        defer { panel.close() }
 
-        XCTAssertEqual(StandardAboutPanel.widen(panel, by: 200), .layoutNotRecognized)
-        XCTAssertEqual(panel.frame, before)
+        XCTAssertEqual(reasons, [])
+        XCTAssertEqual(panel.frame.width, 284 + StandardAboutPanel.creditsExtraWidth, accuracy: 0.5,
+                       "標準の幅 (284pt。macOS 26 で実測) に足した幅で開く")
+    }
+
+    func test_作りが違うパネルは触らずに理由を返す() {
+        // 中身が無い
+        let empty = makePanel()
+        let emptyFrame = empty.frame
+        XCTAssertEqual(StandardAboutPanel.widen(empty, by: 120), .layoutNotRecognized)
+        XCTAssertEqual(empty.frame, emptyFrame)
+
+        // stack はあるが幅の制約が無い
+        let unconstrained = makePanel()
+        unconstrained.contentView?.addSubview(NSStackView())
+        XCTAssertEqual(StandardAboutPanel.widen(unconstrained, by: 120), .layoutNotRecognized)
+
+        // stack の幅は決まっているが、幅いっぱいの欄が無い (幅の決まった小さい部品だけ)
+        let noFullWidthField = makePanel()
+        let stack = NSStackView()
+        stack.translatesAutoresizingMaskIntoConstraints = false
+        stack.widthAnchor.constraint(equalToConstant: 284).isActive = true
+        let button = NSButton(title: "OK", target: nil, action: nil)
+        button.translatesAutoresizingMaskIntoConstraints = false
+        button.widthAnchor.constraint(equalToConstant: 80).isActive = true
+        stack.addArrangedSubview(button)
+        noFullWidthField.contentView?.addSubview(stack)
+        let noFullWidthFrame = noFullWidthField.frame
+        XCTAssertEqual(StandardAboutPanel.widen(noFullWidthField, by: 120), .layoutNotRecognized)
+        XCTAssertEqual(noFullWidthField.frame, noFullWidthFrame)
+        XCTAssertEqual(button.constraints.first { $0.firstAttribute == .width }?.constant, 80, "幅の決まった部品は伸ばさない")
+    }
+
+    private func makePanel() -> NSPanel {
+        NSPanel(contentRect: NSRect(x: 0, y: 0, width: 284, height: 200), styleMask: [.titled], backing: .buffered, defer: true)
     }
 
     private func imageView(in view: NSView?) -> NSImageView? {
@@ -102,8 +139,19 @@ final class StandardAboutPanelTests: XCTestCase {
     }
 
     private func textView(in view: NSView?, showing text: String) -> NSTextView? {
+        textView(in: view) { $0 == text }
+    }
+
+    private func textView(in view: NSView?, containing text: String) -> NSTextView? {
+        textView(in: view) { $0.contains(text) }
+    }
+
+    private func textView(in view: NSView?, where matches: (String) -> Bool) -> NSTextView? {
         guard let view else { return nil }
-        if let textView = view as? NSTextView, textView.string == text { return textView }
-        return view.subviews.lazy.compactMap { self.textView(in: $0, showing: text) }.first
+        if let textView = view as? NSTextView, matches(textView.string) { return textView }
+        for subview in view.subviews {
+            if let found = textView(in: subview, where: matches) { return found }
+        }
+        return nil
     }
 }
