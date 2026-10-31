@@ -195,3 +195,15 @@ vlc を置き換えた差分を、変更前の実装と並べて反証させた 
 
 採らなかったもの (consumer ごとに見る): × と + の色 (`Color.secondary`) を consumer の色にできるか、名前の入力中のタブにも × の枠が残って入力欄が狭いこと、
 入力中のタブにも「Close Tab」の読み上げの操作が付くこと。
+
+## 開く動きと + / × の label (2026-10-31、obaket issue 1337)
+
+- **足したタブを動かして出す `openAnimation` を足した**。既定は `.fadeAndScale` (薄く、0.85 倍・左端を起点の状態から `appearAnimation` = easeOut 0.15 秒で出す。
+  右のタブと + も同じ動きで横へずれる)。`.custom { AnyTransition }` で差し替え、`.none` で止められる。obaket issue 1333 の動きを lib へ移したもの
+  (vlc の切り出し前の帯は「足したときの動きは変えない」で transition を付けていなかったが、ユーザーの指示で動きも共通にした。vlc と DualNote は次にピンを上げたときから動く)
+- 足したかの見分けは `StandardTabOpening` (閉じる側の `StandardTabClosing` と対の純粋な判断)。前のタブが全部残って数が増えたときだけ足したと見る。
+  最初の描画・総入れ替え (復元)・置き換え・閉じる・並べ替えでは帯を動かさない (帯全体が一斉に出てくるのを避ける)。動かすのは足した描画の transaction だけで、
+  consumer が withAnimation で包まなくても動く
+- + と × に読み上げの label (「New Tab」「Close Tab」) を付け、+ の identifier を `addButtonAccessibilityIdentifier` で渡せるようにした (obaket の `tab-bar.new-tab`)
+- 検証: `StandardTabOpeningTests` 4 本。変異 (前のタブが残っているかを見ない / 最初の描画を足したことにする) がそれぞれ狙ったテストで RED。
+  見た目と、溢れの境目 (`ViewThatFits` が並べ方を切り替える) で全部のタブが出直さないかは、obaket の置き換えで実アプリで確かめる

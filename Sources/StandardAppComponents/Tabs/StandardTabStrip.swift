@@ -86,7 +86,21 @@ public struct StandardTabStrip<Item: Identifiable, Label: View>: View {
 
     public var body: some View {
         let entries = model.entries(for: items, collapses: collapses)
+        let opensTabs = configuration.opens && !model.openedIDs(for: items).isEmpty
         layout(entries: entries)
+            // 足した描画だけを動かす (足したタブの transition と、右のタブ・+ のずれ)。consumer が withAnimation で包まなくても動く。
+            // 閉じた・並べ替えた・復元した描画には付けない (閉じたタブは model が縮め、並べ替えはドラッグの delegate が動かす)
+            // consumer が中身の差し替えを動かさないために disablesAnimations の transaction で一覧を書き換えていても、帯の中だけは動かす
+            // (obaket は中央ペインの表を動かさないためにそうしている)。
+            .transaction(value: items.map(\.id)) { transaction in
+                guard opensTabs else { return }
+                transaction.disablesAnimations = false
+                transaction.animation = configuration.appearAnimation
+                let model = model
+                transaction.addAnimationCompletion {
+                    MainActor.assumeIsolated { model.settledOpenCount += 1 }
+                }
+            }
             // 置き場所より背が高くなっても、帯の下端に寄せて切る。切らないと選んでいるタブの塗りが上へ伸び、
             // 帯をタイトルバーの行に置いたアプリではタイトルバーまで塗りが届く
             .frame(maxHeight: .infinity, alignment: .bottom)
@@ -151,6 +165,9 @@ public struct StandardTabStrip<Item: Identifiable, Label: View>: View {
                 model.viewportWidth = width
                 scrollToActive(proxy)
             }
+            // 足した描画ではスクロールの中身の幅も動きの中で伸びるので、上の送り (次の番) は伸びきる前の幅で止まり、
+            // 右端の足したタブが隠れたまま残る (obaket issue 1333 で実測)。伸びきってから送り直す
+            .onChange(of: model.settledOpenCount) { _, _ in scrollToActive(proxy) }
             .onChange(of: model.closingTabs.isEmpty) { _, isEmpty in
                 // 選んでいたタブを閉じたとき、送り先は縮める前の並びで決まる。縮めきってから送り直す
                 if isEmpty { scrollToActive(proxy) }
@@ -174,8 +191,8 @@ public struct StandardTabStrip<Item: Identifiable, Label: View>: View {
                         )
                     }
                 }
-                // 足したタブ・縮めきって外すタブに transition を付けない
-                .transition(.identity)
+                // 足したタブは `openAnimation` で出す。縮めきって外すタブには付けない
+                .transition(configuration.insertionTransition)
             }
             if includesTrailingControls {
                 trailingControls
@@ -197,6 +214,8 @@ public struct StandardTabStrip<Item: Identifiable, Label: View>: View {
             }
             .buttonStyle(.plain)
             .help(configuration.addHelp ?? StandardTabStripConfiguration.defaultAddHelp)
+            .accessibilityLabel(Text("New Tab", bundle: .module))
+            .accessibilityIdentifier(configuration.addButtonAccessibilityIdentifier ?? "")
             .padding(.leading, 4)
         }
         if let trailingAccessory = slots.trailingAccessory {

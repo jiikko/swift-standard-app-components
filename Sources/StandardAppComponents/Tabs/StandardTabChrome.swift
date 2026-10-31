@@ -59,6 +59,7 @@ struct StandardTabChrome<Content: View>: View {
         }
         .buttonStyle(.plain)
         .help(configuration.closeHelp ?? StandardTabStripConfiguration.defaultCloseHelp)
+        .accessibilityLabel(Text("Close Tab", bundle: .module))
     }
 }
 

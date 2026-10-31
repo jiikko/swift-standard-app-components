@@ -20,6 +20,16 @@ public struct StandardTabStripConfiguration: Sendable {
         case none
     }
 
+    /// 足したときの動き。足したタブを出す transition で、右のタブと + は同じ動き (`appearAnimation`) で横へずれる
+    public enum OpenAnimation: Sendable {
+        /// 薄く、少し小さい (0.85 倍、左端を起点) 状態から出す
+        case fadeAndScale
+        /// consumer が渡す transition で出す
+        case custom(@MainActor @Sendable () -> AnyTransition)
+        /// すぐ出す (右のタブと + もすぐずれる)
+        case none
+    }
+
     /// + の置き方
     public enum AddButtonPlacement: Sendable {
         /// タブの直後 (溢れたらタブと一緒にスクロールする)
@@ -32,11 +42,16 @@ public struct StandardTabStripConfiguration: Sendable {
     public var tabHeight: CGFloat
     public var closeAnimation: CloseAnimation
     public var collapseAnimation: Animation
+    public var openAnimation: OpenAnimation
+    /// 足したときの動きの速さ (`openAnimation` が `.none` なら使わない)
+    public var appearAnimation: Animation
     public var addButtonPlacement: AddButtonPlacement
     /// × の help。nil なら lib の「Close Tab」
     public var closeHelp: String?
     /// + の help。nil なら lib の「New Tab」
     public var addHelp: String?
+    /// + の accessibility の identifier (UI テストで探す)。nil なら付けない
+    public var addButtonAccessibilityIdentifier: String?
     /// ドラッグで並べ替えるときの型。既定は文字 (consumer の Info.plist に型を宣言しなくてよい)。
     /// 同じウィンドウに文字やファイルを受ける drop 先があり、タブのドラッグをそこに落とされたくないなら、consumer が宣言した専用の型を渡す
     /// (受け渡しは `.ownProcess` に限る)
@@ -47,18 +62,24 @@ public struct StandardTabStripConfiguration: Sendable {
         tabHeight: CGFloat = 30,
         closeAnimation: CloseAnimation = .collapse,
         collapseAnimation: Animation = .easeInOut(duration: 0.2),
+        openAnimation: OpenAnimation = .fadeAndScale,
+        appearAnimation: Animation = .easeOut(duration: 0.15),
         addButtonPlacement: AddButtonPlacement = .inline,
         closeHelp: String? = nil,
         addHelp: String? = nil,
+        addButtonAccessibilityIdentifier: String? = nil,
         dragType: UTType = .plainText
     ) {
         self.tabWidth = tabWidth
         self.tabHeight = tabHeight
         self.closeAnimation = closeAnimation
         self.collapseAnimation = collapseAnimation
+        self.openAnimation = openAnimation
+        self.appearAnimation = appearAnimation
         self.addButtonPlacement = addButtonPlacement
         self.closeHelp = closeHelp
         self.addHelp = addHelp
+        self.addButtonAccessibilityIdentifier = addButtonAccessibilityIdentifier
         self.dragType = dragType
     }
 
@@ -70,6 +91,26 @@ public struct StandardTabStripConfiguration: Sendable {
             return nil
         }
         return provider
+    }
+
+    /// 足したタブ (並びに入ってきた生きているタブ) の transition。消えるときは付けない (閉じたタブは縮めて外す)
+    @MainActor
+    var insertionTransition: AnyTransition {
+        let insertion: AnyTransition
+        switch openAnimation {
+        case .fadeAndScale:
+            insertion = .opacity.combined(with: .scale(scale: 0.85, anchor: .leading))
+        case .custom(let make):
+            insertion = make()
+        case .none:
+            return .identity
+        }
+        return .asymmetric(insertion: insertion, removal: .identity)
+    }
+
+    var opens: Bool {
+        if case .none = openAnimation { return false }
+        return true
     }
 
     /// タブの右端から × の外側までの幅。`tabOverlay` で × を避けるときに右をこれだけ空ける

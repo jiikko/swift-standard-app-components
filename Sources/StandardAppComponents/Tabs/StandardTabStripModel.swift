@@ -17,6 +17,8 @@ final class StandardTabStripModel<Item: Identifiable> {
     var hoveredID: Item.ID?
     var draggingID: Item.ID?
     var lastMove: StandardTabMoveKey<Item.ID>?
+    /// 足したタブの動きが終わった回数。選んだタブを送り直す合図
+    var settledOpenCount = 0
 
     private(set) var widths: [Item.ID: CGFloat] = [:]
     private(set) var closingTabs: [Item.ID: ClosingTab] = [:]
@@ -40,6 +42,11 @@ final class StandardTabStripModel<Item: Identifiable> {
             closing: Set(closingTabs.keys).union(justClosedIDs),
             previousOrder: displayedIDs
         )
+    }
+
+    /// 足したタブ (足した直後の描画で、まだ `itemsDidChange` が前の並びを書き換える前に見分ける)
+    func openedIDs(for items: [Item]) -> [Item.ID] {
+        StandardTabOpening.openedIDs(from: renderedIDs, to: items.map(\.id))
     }
 
     /// 縮めている途中のタブ (閉じた直後で `closingTabs` にまだ入っていなければ、前に描いた値から作る)
