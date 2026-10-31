@@ -125,6 +125,7 @@ Toast は軽い完了通知、情報通知、復旧可能なエラー通知に�
 
 | API | lib が提供するもの | consumer が実装するもの |
 |---|---|---|
+| `StandardSidebarDividerGrabArea` | `NavigationSplitView` のサイドバーと右の列の境目をつかめる範囲を広げる透明な帯。帯の上でカーソルを左右の矢印にし、ドラッグで分割の位置 (`NSSplitView.setPosition`) を動かす。分割はウィンドウの中から「最初の列がサイドバーの `NSSplitView`」を探して使う。幅の最小・最大は分割が守る | 帯を置く位置と幅 (境目の上に重ねる)・サイドバーを閉じている間は置かないこと・列の幅の保存 |
 | `StandardGlassSegmentedPicker` | 枠の無い文字 (または SF Symbols のアイコン。`systemImage:` / `label:` の初期化。label はカーソルを乗せたときの説明と読み上げ) を 1 つのカプセルに入れ、選んでいる値だけを塗る切り替え。カプセルは macOS 26 以降は Liquid Glass、それより前は `quaternarySystemFill` の塗り。押されたら `onSelect` を呼ぶだけで値は持たない | 選んだ値の持ち主 (binding / view model)、表示する文字・アイコンの名前と label (ローカライズ済みの文字を渡す)、同じ行の他のガラスの部品とまとめる `GlassEffectContainer`、タイトルバーの行でのダブルクリックによるウィンドウの拡大の扱い |
 
 標準のツールバーを使わない自前のタイトルバー (`.hiddenTitleBar` の上端の行) に、macOS 26 のツールバーのセグメンテッドコントロールと同じ見え方の切り替えを置くためのもの。
