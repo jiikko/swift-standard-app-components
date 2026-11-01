@@ -25,11 +25,17 @@ enum SplitMenuButtonLook {
         return (border.horizontalPadding * 2 + iconWidth + spacing + titleWidth + hint).rounded(.up)
     }
 
-    /// SF Symbols の絵を、枠付きの見た目の大きさと色にする
+    /// SF Symbols の絵を、枠付きの見た目の大きさと色にする。1 色で塗り、絵の抜き (ゴミ箱の × など) は抜いたまま残す
+    /// (`paletteColors` に 1 色だけ渡すと、抜きの層まで同じ色で塗られて見えなくなる)
     static func symbol(_ image: NSImage, border: StandardSplitMenuButton.Border, color: NSColor) -> NSImage {
         let configuration = NSImage.SymbolConfiguration(pointSize: border.iconPointSize, weight: .regular)
-            .applying(NSImage.SymbolConfiguration(paletteColors: [color]))
-        return image.withSymbolConfiguration(configuration) ?? image
+        let sized = image.withSymbolConfiguration(configuration) ?? image
+        return NSImage(size: sized.size, flipped: false) { rect in
+            sized.draw(in: rect)
+            color.set()
+            rect.fill(using: .sourceAtop)
+            return true
+        }
     }
 }
 
