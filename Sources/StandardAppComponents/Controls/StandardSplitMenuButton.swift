@@ -77,6 +77,7 @@ public struct StandardSplitMenuButton: NSViewRepresentable {
         let coordinator = context.coordinator
         coordinator.action = action
         coordinator.items = items
+        coordinator.isEnabled = context.environment.isEnabled
         control.setLabel(title, forSegment: Self.actionSegment)
         control.setImage(NSImage(systemSymbolName: systemImage, accessibilityDescription: nil), forSegment: Self.actionSegment)
         control.controlSize = Self.nsControlSize(context.environment.controlSize)
@@ -86,7 +87,8 @@ public struct StandardSplitMenuButton: NSViewRepresentable {
         // 右: 区画にメニューを付けると、control に操作があるので長押しでしか開かない。クリックを受けて自分でメニューを開く
         control.setMenu(coordinator.makeMenu(), forSegment: Self.actionSegment)
         control.setShowsMenuIndicator(false, forSegment: Self.actionSegment)
-        control.menu = coordinator.makeMenu()
+        // 右クリックのメニューは control が押せるかを見ずに開くので、押せない間は付けない (項目も `validateMenuItem` で無効にする)
+        control.menu = coordinator.isEnabled ? coordinator.makeMenu() : nil
     }
 
     static let actionSegment = 0
@@ -127,9 +129,11 @@ public struct StandardSplitMenuButton: NSViewRepresentable {
     }
 
     @MainActor
-    public final class Coordinator: NSObject {
+    public final class Coordinator: NSObject, NSMenuItemValidation {
         var action: () -> Void = {}
         var items: [Item] = []
+        /// `.disabled` の間は操作もメニューの項目も呼ばない (メニューを開く経路は右クリック・VoiceOver など control の外にもある)
+        var isEnabled = true
         /// 右の区画のクリックでメニューを開く。テストでは差し替える (`popUp` はメニューを閉じるまで戻らない)
         var presentMenu: (NSMenu, NSSegmentedControl) -> Void = { menu, control in
             menu.popUp(positioning: nil, at: StandardSplitMenuButton.menuOrigin(in: control), in: control)
@@ -152,6 +156,7 @@ public struct StandardSplitMenuButton: NSViewRepresentable {
 
         /// 押された区画に応じて主の操作を呼ぶか、メニューを開く (momentary の control は押していないと -1 を返す。そのときは何もしない)
         func handleClick(segment: Int, in control: NSSegmentedControl) {
+            guard isEnabled else { return }
             switch segment {
             case StandardSplitMenuButton.actionSegment:
                 action()
@@ -162,8 +167,12 @@ public struct StandardSplitMenuButton: NSViewRepresentable {
             }
         }
 
+        public func validateMenuItem(_ menuItem: NSMenuItem) -> Bool {
+            isEnabled
+        }
+
         @objc func menuItemChosen(_ sender: NSMenuItem) {
-            guard items.indices.contains(sender.tag) else { return }
+            guard isEnabled, items.indices.contains(sender.tag) else { return }
             items[sender.tag].action()
         }
     }

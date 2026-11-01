@@ -82,9 +82,24 @@ final class StandardSplitMenuButtonTests: XCTestCase {
         XCTAssertTrue(control.isEnabled)
     }
 
-    func test_disabledなら押せない() throws {
-        let control = try makeButton(log: Log(), disabled: true)
+    func test_disabledなら操作もメニューの項目も呼ばない() throws {
+        let log = Log()
+        let control = try makeButton(log: log, disabled: true)
+        let coordinator = try XCTUnwrap(control.target as? StandardSplitMenuButton.Coordinator)
+        var presented = 0
+        coordinator.presentMenu = { _, _ in presented += 1 }
+
         XCTAssertFalse(control.isEnabled)
+        XCTAssertNil(control.menu, "右クリックのメニューは control が押せるかを見ずに開くので、押せない間は付けない")
+
+        let segmentMenu = try XCTUnwrap(control.menu(forSegment: StandardSplitMenuButton.actionSegment))
+        let item = try XCTUnwrap(segmentMenu.items.first)
+        XCTAssertFalse(coordinator.validateMenuItem(item), "どの経路で開いても項目は無効")
+        coordinator.menuItemChosen(item)
+        coordinator.handleClick(segment: StandardSplitMenuButton.actionSegment, in: control)
+        coordinator.handleClick(segment: StandardSplitMenuButton.menuSegment, in: control)
+        XCTAssertEqual(log.calls, [])
+        XCTAssertEqual(presented, 0)
     }
 
     func test_右の区画のメニューは右の区画の左端の下に開く() throws {
