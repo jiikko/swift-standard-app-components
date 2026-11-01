@@ -397,6 +397,24 @@
         }
       }
     },
+    "More Options": {
+      "comment": "StandardSplitMenuButton - tooltip and accessibility label of the chevron segment that opens the menu",
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "More Options"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "その他のオプション"
+          }
+        }
+      }
+    },
     "More Apps by the Developer": {
       "comment": "StandardAboutPanel - heading of the list of other apps in the About panel credits",
       "extractionState": "manual",

@@ -159,6 +159,7 @@ UI 非依存のロギング product。**ログの入口と subsystem / category 
 | タブの帯 | `StandardTabStrip` (Chrome 風のタブ。選ぶ・閉じる・足す・ドラッグで並べ替え・見える所へ送る・閉じたタブを縮めて消す・選んでいるタブの上端に目印の線 (任意)。lifecycle は callback で consumer に残す) |
 | サイドバーの境目 | `StandardSidebarDividerGrabArea` (`NavigationSplitView` のサイドバーの境目をつかめる範囲を広げる透明な帯。consumer が境目の上に重ねる) |
 | タイトルバーの切り替え | `StandardGlassSegmentedPicker` (自前のタイトルバーに置く、macOS 26 のツールバーと同じ見え方のセグメント。26 以降は Liquid Glass) |
+| 分割ボタン | `StandardSplitMenuButton` (左 = クリックで主の操作・長押しでメニュー (右上に ▼)、右の ⌄ = クリックでメニュー、右クリックでも同じメニュー。メニューは macOS 標準。入力先を取らない) |
 | view-local helper | `DoubleClickDetector` (即時 single + ダブルクリック起動を両立。位置 / id の 2 モード) |
 | ローカライズ検証 | `StandardAppComponentsLocalization.validateRequiredKeys()` |
 | 動画再生補助 | `PlaybackTimeFormatter` (時刻整形の正本。`Style` で分ゼロ埋めを選択、`playbackTime(_:totalDuration:style:)` は総尺で桁固定 + 不正入力 sanitize)、`FullscreenCursorVisibilityController` / `CursorActuator` (マウス静止でカーソル自動非表示。解放前に `stop()` 必須) |

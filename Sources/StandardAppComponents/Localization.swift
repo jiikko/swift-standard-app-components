@@ -50,7 +50,9 @@ public enum StandardAppComponentsLocalization {
         "Other",
         // StandardAboutPanel / StandardAboutCommands
         "More Apps by the Developer",
-        "About %@"
+        "About %@",
+        // StandardSplitMenuButton
+        "More Options"
     ]
 
     /// Lib のリソース bundle (`Bundle.module`) を public に露出する。
