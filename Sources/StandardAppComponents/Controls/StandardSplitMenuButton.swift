@@ -21,6 +21,13 @@ import SwiftUI
 /// 大きさは `.controlSize(_:)`、押せるかは `.disabled(_:)` に従う。名前とメニューの文字は verbatim
 /// (ローカライズが要るなら consumer が解決した文字を渡す)。
 ///
+/// 見た目は既定で macOS 標準の描画 (macOS 26 以降は枠のない灰色の塗り。`segmentStyle` を変えても同じ)。consumer の自作の枠付きのボタンと
+/// 並べるなら `border:` に `Border` を渡すと、枠・塗り・区画の間の縦線と中身 (アイコン・文字) を自分で描き、カーソルを乗せた区画と押している区画の
+/// 塗りを変え (押している区画は中身を少し下げて凹んで見せる)、高さを揃える。
+///
+/// `items` が空なら区画 1 つの普通のボタン (メニュー・▼・⌄ なし) になる。同じ枠付きの見た目で、メニューを持たないボタンを並べるときに使う。
+/// 名前が切り替わるボタン (Mute All / Unmute など) は `reservingWidthFor:` に切り替わる先を渡すと、切り替えても幅が変わらない (枠付きのときだけ)。
+///
 /// クリックでキーボードの入力先 (first responder) を取らない (`refusesFirstResponder`)。取ると、consumer が自前で受けている
 /// 単キーのショートカットが止まる (`StandardGlassSegmentedPicker` と同じ理由)。
 public struct StandardSplitMenuButton: NSViewRepresentable {
@@ -35,20 +42,91 @@ public struct StandardSplitMenuButton: NSViewRepresentable {
         }
     }
 
+    /// 枠付きの見た目 (`border:` に渡す)。色は consumer の他のボタンと同じものを渡す
+    public struct Border: Equatable {
+        public var fill: NSColor
+        public var hoveredFill: NSColor
+        public var pressedFill: NSColor
+        public var stroke: NSColor
+        public var hoveredStroke: NSColor
+        public var divider: NSColor
+        public var cornerRadius: CGFloat
+        /// 高さ (標準の描画の高さは `controlSize` で決まり、他のボタンと揃わないことがある)
+        public var height: CGFloat
+        /// 押せない間の不透明度
+        public var disabledOpacity: CGFloat
+        /// アイコン・文字・⌄ の色
+        public var foreground: NSColor
+        public var font: NSFont
+        public var iconPointSize: CGFloat
+        public var iconSpacing: CGFloat
+        /// 左の区画の中身の左右の余白
+        public var horizontalPadding: CGFloat
+        /// 右の区画 (⌄) の幅
+        public var menuSegmentWidth: CGFloat
+
+        public init(
+            fill: NSColor,
+            hoveredFill: NSColor,
+            pressedFill: NSColor,
+            stroke: NSColor,
+            hoveredStroke: NSColor,
+            divider: NSColor,
+            foreground: NSColor = .secondaryLabelColor,
+            font: NSFont = .systemFont(ofSize: 13),
+            iconPointSize: CGFloat = 14,
+            iconSpacing: CGFloat = 8,
+            horizontalPadding: CGFloat = 16,
+            menuSegmentWidth: CGFloat = 28,
+            cornerRadius: CGFloat = 6,
+            height: CGFloat = 30,
+            disabledOpacity: CGFloat = 0.4
+        ) {
+            self.fill = fill
+            self.hoveredFill = hoveredFill
+            self.pressedFill = pressedFill
+            self.stroke = stroke
+            self.hoveredStroke = hoveredStroke
+            self.divider = divider
+            self.foreground = foreground
+            self.font = font
+            self.iconPointSize = iconPointSize
+            self.iconSpacing = iconSpacing
+            self.horizontalPadding = horizontalPadding
+            self.menuSegmentWidth = menuSegmentWidth
+            self.cornerRadius = cornerRadius
+            self.height = height
+            self.disabledOpacity = disabledOpacity
+        }
+    }
+
     private let title: String
     private let systemImage: String
     private let items: [Item]
+    private let border: Border?
+    private let widthAlternatives: [(title: String, systemImage: String)]
     private let action: () -> Void
 
     /// - Parameters:
     ///   - title: 左の区画の名前
     ///   - systemImage: 左の区画のアイコン (SF Symbols)
     ///   - items: メニューの項目 (左の長押し・右の ⌄・右クリックで同じものを出す)
+    ///   - border: 枠付きの見た目。nil なら macOS 標準の描画
+    ///   - widthAlternatives: 切り替わる先の名前とアイコン。左の区画の幅をこれらと今の中身のいちばん広いものに揃える (枠付きのときだけ)
     ///   - action: 左の区画のクリックで呼ぶ主の操作
-    public init(_ title: String, systemImage: String, items: [Item], action: @escaping () -> Void) {
+    public init(
+        _ title: String,
+        systemImage: String,
+        items: [Item],
+        border: Border? = nil,
+        reservingWidthFor widthAlternatives: [(title: String, systemImage: String)] = [],
+        action: @escaping () -> Void
+    ) {
         self.title = title
         self.systemImage = systemImage
         self.items = items
+        self.border = border
+        self.widthAlternatives = widthAlternatives
         self.action = action
     }
 
@@ -57,18 +135,12 @@ public struct StandardSplitMenuButton: NSViewRepresentable {
     }
 
     public func makeNSView(context: Context) -> NSSegmentedControl {
-        let control = NSSegmentedControl()
+        let control = SplitMenuSegmentedControl()
         control.cell = LongPressHintSegmentedCell()
-        control.segmentCount = 2
         control.trackingMode = .momentary
         control.refusesFirstResponder = true
         control.target = context.coordinator
         control.action = #selector(Coordinator.segmentClicked(_:))
-        control.setImage(
-            NSImage(systemSymbolName: "chevron.down", accessibilityDescription: Self.moreOptionsLabel),
-            forSegment: Self.menuSegment
-        )
-        control.setToolTip(Self.moreOptionsLabel, forSegment: Self.menuSegment)
         updateNSView(control, context: context)
         return control
     }
@@ -78,17 +150,49 @@ public struct StandardSplitMenuButton: NSViewRepresentable {
         coordinator.action = action
         coordinator.items = items
         coordinator.isEnabled = context.environment.isEnabled
+        let hasMenu = !items.isEmpty
+        control.segmentCount = hasMenu ? 2 : 1
         control.setLabel(title, forSegment: Self.actionSegment)
         control.setImage(NSImage(systemSymbolName: systemImage, accessibilityDescription: nil), forSegment: Self.actionSegment)
+        if hasMenu {
+            control.setImage(
+                NSImage(systemSymbolName: "chevron.down", accessibilityDescription: Self.moreOptionsLabel),
+                forSegment: Self.menuSegment
+            )
+            control.setToolTip(Self.moreOptionsLabel, forSegment: Self.menuSegment)
+        }
         control.controlSize = Self.nsControlSize(context.environment.controlSize)
-        control.setWidth(Self.menuSegmentWidth(control.controlSize), forSegment: Self.menuSegment)
         control.isEnabled = context.environment.isEnabled
+        if let control = control as? SplitMenuSegmentedControl, control.border != border {
+            control.border = border
+        }
+        if let border {
+            control.setWidth(actionSegmentWidth(border: border, hasMenu: hasMenu), forSegment: Self.actionSegment)
+            if hasMenu { control.setWidth(border.menuSegmentWidth, forSegment: Self.menuSegment) }
+        } else {
+            control.setWidth(0, forSegment: Self.actionSegment)
+            if hasMenu { control.setWidth(Self.menuSegmentWidth(control.controlSize), forSegment: Self.menuSegment) }
+        }
+        control.invalidateIntrinsicContentSize()
         // 左: 操作とメニューの両方を持つ区画は、クリックで操作、押し続けるとメニュー (AppKit の `setMenu(_:forSegment:)`)。
         // 右: 区画にメニューを付けると、control に操作があるので長押しでしか開かない。クリックを受けて自分でメニューを開く
-        control.setMenu(coordinator.makeMenu(), forSegment: Self.actionSegment)
+        control.setMenu(hasMenu ? coordinator.makeMenu() : nil, forSegment: Self.actionSegment)
         control.setShowsMenuIndicator(false, forSegment: Self.actionSegment)
         // 右クリックのメニューは control が押せるかを見ずに開くので、押せない間は付けない (項目も `validateMenuItem` で無効にする)
-        control.menu = coordinator.isEnabled ? coordinator.makeMenu() : nil
+        control.menu = hasMenu && coordinator.isEnabled ? coordinator.makeMenu() : nil
+    }
+
+    /// 枠付きのときの左の区画の幅。今の中身と `widthAlternatives` のいちばん広いもの (切り替えても幅が変わらない)
+    private func actionSegmentWidth(border: Border, hasMenu: Bool) -> CGFloat {
+        let contents = [(title: title, systemImage: systemImage)] + widthAlternatives
+        return contents.map { content in
+            SplitMenuButtonLook.actionSegmentWidth(
+                title: content.title,
+                image: NSImage(systemSymbolName: content.systemImage, accessibilityDescription: nil),
+                border: border,
+                hasMenu: hasMenu
+            )
+        }.max() ?? 0
     }
 
     static let actionSegment = 0
@@ -160,7 +264,7 @@ public struct StandardSplitMenuButton: NSViewRepresentable {
             switch segment {
             case StandardSplitMenuButton.actionSegment:
                 action()
-            case StandardSplitMenuButton.menuSegment:
+            case StandardSplitMenuButton.menuSegment where !items.isEmpty:
                 presentMenu(makeMenu(), control)
             default:
                 break
@@ -175,28 +279,5 @@ public struct StandardSplitMenuButton: NSViewRepresentable {
             guard isEnabled, items.indices.contains(sender.tag) else { return }
             items[sender.tag].action()
         }
-    }
-}
-
-/// 左の区画の右上に小さな ▼ を描き、押し続けるとメニューが出ることを示す (大きさと位置は 2026-11-01 のユーザー指定)
-final class LongPressHintSegmentedCell: NSSegmentedCell {
-    static let triangleSize: CGFloat = 6.5
-    static let trailingInset: CGFloat = 3
-    static let topInset: CGFloat = 5
-
-    override func drawSegment(_ segment: Int, inFrame frame: NSRect, with controlView: NSView) {
-        super.drawSegment(segment, inFrame: frame, with: controlView)
-        guard segment == StandardSplitMenuButton.actionSegment else { return }
-        let size = Self.triangleSize
-        let right = frame.maxX - Self.trailingInset
-        let top = controlView.isFlipped ? frame.minY + Self.topInset : frame.maxY - Self.topInset
-        let bottom = controlView.isFlipped ? top + size * 0.8 : top - size * 0.8
-        let path = NSBezierPath()
-        path.move(to: NSPoint(x: right - size, y: top))
-        path.line(to: NSPoint(x: right, y: top))
-        path.line(to: NSPoint(x: right - size / 2, y: bottom))
-        path.close()
-        (isEnabled ? NSColor.secondaryLabelColor : NSColor.tertiaryLabelColor).setFill()
-        path.fill()
     }
 }

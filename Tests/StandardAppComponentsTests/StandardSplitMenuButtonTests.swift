@@ -138,6 +138,117 @@ final class StandardSplitMenuButtonTests: XCTestCase {
         XCTAssertEqual(origin.y, control.isFlipped ? 34 : -4, accuracy: 0.5)
     }
 
+    // MARK: - 枠付きの見た目
+
+    private let border = StandardSplitMenuButton.Border(
+        fill: .white, hoveredFill: .lightGray, pressedFill: .gray,
+        stroke: .black, hoveredStroke: .blue, divider: .red, height: 30
+    )
+
+    func test_枠を渡すと高さを揃え_渡さなければ標準の描画のまま() throws {
+        let plain = try XCTUnwrap(makeButton(log: Log()) as? SplitMenuSegmentedControl)
+        XCTAssertNil(plain.border)
+        XCTAssertNotEqual(plain.intrinsicContentSize.height, 30, "標準の描画の高さは controlSize で決まる (この前提が崩れたら下の検査が空振りする)")
+
+        let view = StandardSplitMenuButton("-1 Min", systemImage: "gobackward", items: [], border: border) {}
+            .controlSize(.large)
+        let host = NSHostingView(rootView: view)
+        host.frame = NSRect(x: 0, y: 0, width: 300, height: 60)
+        host.layoutSubtreeIfNeeded()
+        retained.append(host)
+        let bordered = try XCTUnwrap(segmentedControl(in: host) as? SplitMenuSegmentedControl)
+        XCTAssertEqual(bordered.border, border)
+        XCTAssertEqual(bordered.intrinsicContentSize.height, 30)
+    }
+
+    func test_塗りは押している区画_カーソルを乗せた区画_地の順() {
+        XCTAssertEqual(SplitMenuButtonLook.segmentFill(0, hovered: 0, pressed: 0, border: border), .gray)
+        XCTAssertEqual(SplitMenuButtonLook.segmentFill(0, hovered: 0, pressed: nil, border: border), .lightGray)
+        XCTAssertNil(SplitMenuButtonLook.segmentFill(1, hovered: 0, pressed: nil, border: border), "カーソルが乗っていない区画は地の塗り")
+        XCTAssertNil(SplitMenuButtonLook.segmentFill(1, hovered: 1, pressed: 0, border: border), "押している間は他の区画を強調しない")
+        XCTAssertEqual(SplitMenuButtonLook.stroke(hovered: nil, pressed: nil, border: border), .black)
+        XCTAssertEqual(SplitMenuButtonLook.stroke(hovered: 1, pressed: nil, border: border), .blue)
+        XCTAssertEqual(SplitMenuButtonLook.stroke(hovered: nil, pressed: 0, border: border), .blue)
+    }
+
+    func test_カーソルの位置から乗っている区画を決め_外へ出る_押せない_枠を外すと消す() throws {
+        let control = SplitMenuSegmentedControl()
+        control.segmentCount = 2
+        control.setWidth(26, forSegment: StandardSplitMenuButton.menuSegment)
+        control.frame = NSRect(x: 0, y: 0, width: 150, height: 30)
+        control.border = border
+
+        XCTAssertEqual(control.segment(atX: 130), StandardSplitMenuButton.menuSegment)
+        XCTAssertEqual(control.segment(atX: 100), StandardSplitMenuButton.actionSegment)
+        control.updateHover(locationInWindow: NSPoint(x: 100, y: 15))
+        XCTAssertEqual(control.hoveredSegment, StandardSplitMenuButton.actionSegment)
+        control.updateHover(locationInWindow: NSPoint(x: 140, y: 15))
+        XCTAssertEqual(control.hoveredSegment, StandardSplitMenuButton.menuSegment)
+        control.updateHover(locationInWindow: NSPoint(x: 400, y: 15))
+        XCTAssertNil(control.hoveredSegment, "外へ出たら消す")
+
+        control.updateHover(locationInWindow: NSPoint(x: 100, y: 15))
+        control.isEnabled = false
+        control.updateHover(locationInWindow: NSPoint(x: 100, y: 15))
+        XCTAssertNil(control.hoveredSegment, "押せない間は強調しない")
+
+        control.isEnabled = true
+        control.updateHover(locationInWindow: NSPoint(x: 100, y: 15))
+        control.border = nil
+        XCTAssertNil(control.hoveredSegment, "枠を外したら強調も消す")
+    }
+
+    private func hostedControl<V: View>(_ view: V) throws -> SplitMenuSegmentedControl {
+        let host = NSHostingView(rootView: view)
+        host.frame = NSRect(x: 0, y: 0, width: 400, height: 60)
+        host.layoutSubtreeIfNeeded()
+        retained.append(host)
+        return try XCTUnwrap(segmentedControl(in: host) as? SplitMenuSegmentedControl)
+    }
+
+    func test_項目が空なら区画1つの普通のボタンでメニューを持たない() throws {
+        let log = Log()
+        let control = try hostedControl(
+            StandardSplitMenuButton("Mute All", systemImage: "speaker.wave.2.fill", items: [], border: border) {
+                log.calls.append("primary")
+            }
+        )
+        let coordinator = try XCTUnwrap(control.target as? StandardSplitMenuButton.Coordinator)
+        var presented = 0
+        coordinator.presentMenu = { _, _ in presented += 1 }
+
+        XCTAssertEqual(control.segmentCount, 1)
+        XCTAssertNil(control.menu(forSegment: StandardSplitMenuButton.actionSegment), "長押しのメニューも無い")
+        XCTAssertNil(control.menu, "右クリックのメニューも無い")
+        XCTAssertEqual(control.segment(atX: control.bounds.width - 1), StandardSplitMenuButton.actionSegment, "右端も左の区画")
+        coordinator.handleClick(segment: StandardSplitMenuButton.actionSegment, in: control)
+        coordinator.handleClick(segment: StandardSplitMenuButton.menuSegment, in: control)
+        XCTAssertEqual(log.calls, ["primary"])
+        XCTAssertEqual(presented, 0)
+    }
+
+    func test_名前が切り替わっても幅を揃える() throws {
+        let alternatives: [(title: String, systemImage: String)] = [
+            (title: "Mute All", systemImage: "speaker.wave.2.fill"),
+            (title: "Unmute", systemImage: "speaker.slash.fill")
+        ]
+        let muted = try hostedControl(StandardSplitMenuButton(
+            "Unmute", systemImage: "speaker.slash.fill", items: [], border: border, reservingWidthFor: alternatives
+        ) {})
+        let unmuted = try hostedControl(StandardSplitMenuButton(
+            "Mute All", systemImage: "speaker.wave.2.fill", items: [], border: border, reservingWidthFor: alternatives
+        ) {})
+        let plainShort = try hostedControl(StandardSplitMenuButton(
+            "Unmute", systemImage: "speaker.slash.fill", items: [], border: border
+        ) {})
+        let plainLong = try hostedControl(StandardSplitMenuButton(
+            "Mute All", systemImage: "speaker.wave.2.fill", items: [], border: border
+        ) {})
+        XCTAssertNotEqual(plainShort.width(forSegment: 0), plainLong.width(forSegment: 0), "揃えなければ幅が違う (前提)")
+        XCTAssertEqual(muted.width(forSegment: 0), unmuted.width(forSegment: 0))
+        XCTAssertEqual(muted.width(forSegment: 0), max(plainShort.width(forSegment: 0), plainLong.width(forSegment: 0)))
+    }
+
     private func segmentedControl(in view: NSView) -> NSSegmentedControl? {
         if let control = view as? NSSegmentedControl { return control }
         for subview in view.subviews {
