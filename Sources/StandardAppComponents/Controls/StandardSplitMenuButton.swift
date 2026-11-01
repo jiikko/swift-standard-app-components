@@ -163,23 +163,42 @@ public struct StandardSplitMenuButton: NSViewRepresentable {
         }
         control.controlSize = Self.nsControlSize(context.environment.controlSize)
         control.isEnabled = context.environment.isEnabled
-        if let control = control as? SplitMenuSegmentedControl, control.border != border {
-            control.border = border
+        if let control = control as? SplitMenuSegmentedControl {
+            if control.border != border { control.border = border }
+            // 枠付きのときは control が自分で押下を追う (`SplitMenuSegmentedControl.mouseDown`)。押せるかと項目の扱いは coordinator と同じ
+            control.primaryAction = { [weak coordinator, weak control] in
+                guard let coordinator, let control else { return }
+                coordinator.handleClick(segment: Self.actionSegment, in: control)
+            }
+            control.menuProvider = { [weak coordinator] in
+                guard let coordinator, coordinator.isEnabled, !coordinator.items.isEmpty else { return nil }
+                return coordinator.makeMenu()
+            }
         }
+        // 幅とメニューは中身が変わったときだけ作り直す (consumer の view は関係の無い状態の変化でも何度も更新される)
+        let widths: [CGFloat]
         if let border {
-            control.setWidth(actionSegmentWidth(border: border, hasMenu: hasMenu), forSegment: Self.actionSegment)
-            if hasMenu { control.setWidth(border.menuSegmentWidth, forSegment: Self.menuSegment) }
+            widths = [actionSegmentWidth(border: border, hasMenu: hasMenu)] + (hasMenu ? [border.menuSegmentWidth] : [])
         } else {
-            control.setWidth(0, forSegment: Self.actionSegment)
-            if hasMenu { control.setWidth(Self.menuSegmentWidth(control.controlSize), forSegment: Self.menuSegment) }
+            widths = [0] + (hasMenu ? [Self.menuSegmentWidth(control.controlSize)] : [])
         }
-        control.invalidateIntrinsicContentSize()
-        // 左: 操作とメニューの両方を持つ区画は、クリックで操作、押し続けるとメニュー (AppKit の `setMenu(_:forSegment:)`)。
-        // 右: 区画にメニューを付けると、control に操作があるので長押しでしか開かない。クリックを受けて自分でメニューを開く
-        control.setMenu(hasMenu ? coordinator.makeMenu() : nil, forSegment: Self.actionSegment)
-        control.setShowsMenuIndicator(false, forSegment: Self.actionSegment)
-        // 右クリックのメニューは control が押せるかを見ずに開くので、押せない間は付けない (項目も `validateMenuItem` で無効にする)
-        control.menu = hasMenu && coordinator.isEnabled ? coordinator.makeMenu() : nil
+        // 枠なしは名前とアイコンから AppKit が幅を決める (幅は 0 のまま) ので、名前が変わったときに大きさを取り直させるため毎回 invalidate する
+        if border == nil || widths.indices.map({ control.width(forSegment: $0) }) != widths {
+            for (segment, width) in widths.enumerated() {
+                control.setWidth(width, forSegment: segment)
+            }
+            control.invalidateIntrinsicContentSize()
+        }
+        let menuKey = Coordinator.MenuKey(titles: items.map(\.title), isEnabled: coordinator.isEnabled)
+        if coordinator.builtMenuKey != menuKey {
+            coordinator.builtMenuKey = menuKey
+            // 左: 操作とメニューの両方を持つ区画は、クリックで操作、押し続けるとメニュー (AppKit の `setMenu(_:forSegment:)`)。
+            // 右: 区画にメニューを付けると、control に操作があるので長押しでしか開かない。クリックを受けて自分でメニューを開く
+            control.setMenu(hasMenu ? coordinator.makeMenu() : nil, forSegment: Self.actionSegment)
+            control.setShowsMenuIndicator(false, forSegment: Self.actionSegment)
+            // 右クリックのメニューは control が押せるかを見ずに開くので、押せない間は付けない (項目も `validateMenuItem` で無効にする)
+            control.menu = hasMenu && coordinator.isEnabled ? coordinator.makeMenu() : nil
+        }
     }
 
     /// 枠付きのときの左の区画の幅。今の中身と `widthAlternatives` のいちばん広いもの (切り替えても幅が変わらない)
@@ -238,6 +257,13 @@ public struct StandardSplitMenuButton: NSViewRepresentable {
         var items: [Item] = []
         /// `.disabled` の間は操作もメニューの項目も呼ばない (メニューを開く経路は右クリック・VoiceOver など control の外にもある)
         var isEnabled = true
+        /// 今付けているメニューの中身 (項目の名前と押せるか)。同じなら作り直さない (項目の操作は `items` を tag で引くので、名前が同じなら古いメニューのままでよい)
+        struct MenuKey: Equatable {
+            let titles: [String]
+            let isEnabled: Bool
+        }
+
+        var builtMenuKey: MenuKey?
         /// 右の区画のクリックでメニューを開く。テストでは差し替える (`popUp` はメニューを閉じるまで戻らない)
         var presentMenu: (NSMenu, NSSegmentedControl) -> Void = { menu, control in
             menu.popUp(positioning: nil, at: StandardSplitMenuButton.menuOrigin(in: control), in: control)

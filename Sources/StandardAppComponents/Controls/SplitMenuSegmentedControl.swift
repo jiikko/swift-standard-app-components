@@ -39,12 +39,52 @@ enum SplitMenuButtonLook {
     }
 }
 
+/// 枠付きの見た目のときの左の区画の押下の判定。押してから離すまで・押し続けるまでの出来事から、主の操作・メニュー・取り消しを決める
+struct SplitMenuPressTracker {
+    enum Outcome: Equatable {
+        /// まだ決まらない (押し続けている)
+        case pending
+        /// 主の操作 (離した位置がボタンの上)
+        case primary
+        /// 長押しのメニューを開く
+        case menu
+        /// 何もしない (外で離した)
+        case cancel
+    }
+
+    /// 押し続けてメニューを出すまでの時間 (旧 `LongPressMenuButton` と同じ)
+    static let longPressDelay: TimeInterval = 0.3
+
+    /// 離したかどうかと、離した位置
+    enum Release: Equatable {
+        case notYet
+        case inside
+        case outside
+    }
+
+    let hasMenu: Bool
+
+    /// 押してから `elapsed` 秒たった時点で、離したかどうかと離した位置、今カーソルが左の区画の上にあるか (`isOver`) から決める。
+    /// 押したまま外へ出している間はメニューを開かない (標準のボタンと同じく、外へ出して離せば取り消せる)
+    func outcome(elapsed: TimeInterval, release: Release, isOver: Bool) -> Outcome {
+        switch release {
+        case .inside:
+            .primary
+        case .outside:
+            .cancel
+        case .notYet:
+            hasMenu && isOver && elapsed >= Self.longPressDelay ? .menu : .pending
+        }
+    }
+}
+
 /// 枠付きの見た目のとき、高さを `Border.height` に揃え、カーソルを乗せた区画と押している区画を覚えて描き直す
 final class SplitMenuSegmentedControl: NSSegmentedControl {
     var border: StandardSplitMenuButton.Border? {
         didSet {
             invalidateIntrinsicContentSize()
             updateTrackingAreas()
+            window?.invalidateCursorRects(for: self)
             needsDisplay = true
         }
     }
@@ -59,10 +99,44 @@ final class SplitMenuSegmentedControl: NSSegmentedControl {
 
     private var hoverTrackingArea: NSTrackingArea?
 
+    /// 枠付きの見た目のときの押下の扱い。AppKit の区画の追跡は元の高さの中でしか押下を拾わず、`Border.height` に広げた上下の縁が
+    /// 押せなかった (2026-11-01 に probe で確かめた。`cellSize` を上書きしても変わらない) ので、枠付きのときは自分で追跡する
+    var primaryAction: (() -> Void)?
+    /// 開くメニュー (無ければメニューを持たないボタン)
+    var menuProvider: (() -> NSMenu?)?
+    /// メニューを `point` (control の座標) に開く。テストでは差し替える (`popUp` はメニューを閉じるまで戻らない)
+    var presentMenuAt: (NSMenu, NSPoint, SplitMenuSegmentedControl) -> Void = { menu, point, control in
+        menu.popUp(positioning: nil, at: point, in: control)
+    }
+
     override var intrinsicContentSize: NSSize {
         var size = super.intrinsicContentSize
         if let border { size.height = border.height }
         return size
+    }
+
+    override var isEnabled: Bool {
+        didSet {
+            // 押せなくなった (押した直後に押せなくなるボタンなど) ら、カーソルを乗せた見た目を残さない
+            if !isEnabled { hoveredSegment = nil }
+            window?.invalidateCursorRects(for: self)
+        }
+    }
+
+    /// 枠付きで押せる間は指のカーソル (自作のボタンと同じ)
+    override func resetCursorRects() {
+        super.resetCursorRects()
+        if border != nil, isEnabled {
+            addCursorRect(bounds, cursor: .pointingHand)
+        }
+    }
+
+    override func rightMouseDown(with event: NSEvent) {
+        // 右クリックのメニューは閉じるまで戻らない。閉じた後は mouseExited が届かないことがあるので、今の位置から取り直す
+        super.rightMouseDown(with: event)
+        if let window {
+            updateHover(locationInWindow: window.mouseLocationOutsideOfEventStream)
+        }
     }
 
     /// x 座標 (control の座標) が乗っている区画。区画が 2 つで右の区画の幅より右なら ⌄ の区画
@@ -107,19 +181,76 @@ final class SplitMenuSegmentedControl: NSSegmentedControl {
     }
 
     override func mouseDown(with event: NSEvent) {
-        guard border != nil, isEnabled else {
+        guard border != nil else {
             super.mouseDown(with: event)
             return
         }
-        pressedSegment = segment(atX: convert(event.locationInWindow, from: nil).x)
+        guard isEnabled else { return }
+        let segment = segment(atX: convert(event.locationInWindow, from: nil).x)
+        pressedSegment = segment
         display()
-        // 押している間の追跡 (長押しのメニュー・⌄ のメニューを含む) は離すまでここで戻らない
-        super.mouseDown(with: event)
+        if segment == StandardSplitMenuButton.menuSegment {
+            // ⌄: 押した時点でメニューを開く (標準のプルダウンと同じ。押したまま項目まで動かして離しても決まる)
+            openMenu(below: StandardSplitMenuButton.menuSegment)
+        } else {
+            trackActionSegment()
+        }
         pressedSegment = nil
         // メニューを閉じた後はカーソルが外へ出ていても mouseExited が届かないことがあるので、今の位置から取り直す
         if let window {
             updateHover(locationInWindow: window.mouseLocationOutsideOfEventStream)
         }
+    }
+
+    /// 左の区画を押してから離すまでを追う。離したら主の操作 (外なら取り消し)、押し続けたらメニュー
+    private func trackActionSegment() {
+        let tracker = SplitMenuPressTracker(hasMenu: menuProvider?() != nil)
+        let start = Date()
+        var isOver = true
+        while let window {
+            let remaining = tracker.hasMenu ? SplitMenuPressTracker.longPressDelay - Date().timeIntervalSince(start) : .infinity
+            let next = window.nextEvent(
+                matching: [.leftMouseUp, .leftMouseDragged],
+                until: remaining.isFinite ? Date(timeIntervalSinceNow: max(remaining, 0)) : .distantFuture,
+                inMode: .eventTracking,
+                dequeue: true
+            )
+            var release = SplitMenuPressTracker.Release.notYet
+            if let next {
+                // 左の区画の上か (⌄ の区画の上で離しても主の操作にしない)
+                let point = convert(next.locationInWindow, from: nil)
+                isOver = bounds.contains(point) && segment(atX: point.x) == StandardSplitMenuButton.actionSegment
+                if next.type == .leftMouseUp {
+                    release = isOver ? .inside : .outside
+                } else {
+                    // 押したまま外へ出たら凹みを戻し、戻ったら凹ませる (変わったときだけ描き直す)
+                    let pressed = isOver ? StandardSplitMenuButton.actionSegment : nil
+                    if pressedSegment != pressed {
+                        pressedSegment = pressed
+                        display()
+                    }
+                }
+            }
+            switch tracker.outcome(elapsed: Date().timeIntervalSince(start), release: release, isOver: isOver) {
+            case .pending:
+                continue
+            case .primary:
+                primaryAction?()
+            case .menu:
+                openMenu(below: StandardSplitMenuButton.actionSegment)
+            case .cancel:
+                break
+            }
+            return
+        }
+    }
+
+    /// `segment` の区画の左下にメニューを開く
+    private func openMenu(below segment: Int) {
+        guard let menu = menuProvider?() else { return }
+        let frames = (cell as? LongPressHintSegmentedCell)?.segmentFrames(in: bounds) ?? [bounds]
+        let frame = frames.indices.contains(segment) ? frames[segment] : bounds
+        presentMenuAt(menu, NSPoint(x: frame.minX, y: isFlipped ? bounds.maxY + 4 : -4), self)
     }
 
     func updateHover(locationInWindow: NSPoint) {

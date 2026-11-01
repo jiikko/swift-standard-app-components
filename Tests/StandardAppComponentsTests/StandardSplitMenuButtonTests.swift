@@ -194,6 +194,12 @@ final class StandardSplitMenuButtonTests: XCTestCase {
 
         control.isEnabled = true
         control.updateHover(locationInWindow: NSPoint(x: 100, y: 15))
+        XCTAssertNotNil(control.hoveredSegment)
+        control.isEnabled = false
+        XCTAssertNil(control.hoveredSegment, "乗せたまま押せなくなったら、乗せた見た目を消す")
+
+        control.isEnabled = true
+        control.updateHover(locationInWindow: NSPoint(x: 100, y: 15))
         control.border = nil
         XCTAssertNil(control.hoveredSegment, "枠を外したら強調も消す")
     }
@@ -247,6 +253,49 @@ final class StandardSplitMenuButtonTests: XCTestCase {
         XCTAssertNotEqual(plainShort.width(forSegment: 0), plainLong.width(forSegment: 0), "揃えなければ幅が違う (前提)")
         XCTAssertEqual(muted.width(forSegment: 0), unmuted.width(forSegment: 0))
         XCTAssertEqual(muted.width(forSegment: 0), max(plainShort.width(forSegment: 0), plainLong.width(forSegment: 0)))
+    }
+
+    func test_枠付きの左の区画は_離せば主の操作_外で離せば取り消し_押し続ければメニュー() {
+        let withMenu = SplitMenuPressTracker(hasMenu: true)
+        let delay = SplitMenuPressTracker.longPressDelay
+        XCTAssertEqual(withMenu.outcome(elapsed: 0.1, release: .inside, isOver: true), .primary)
+        XCTAssertEqual(withMenu.outcome(elapsed: 0.1, release: .outside, isOver: false), .cancel)
+        XCTAssertEqual(withMenu.outcome(elapsed: 0.1, release: .notYet, isOver: true), .pending)
+        XCTAssertEqual(withMenu.outcome(elapsed: delay, release: .notYet, isOver: true), .menu)
+        XCTAssertEqual(withMenu.outcome(elapsed: delay, release: .notYet, isOver: false), .pending, "外へ出している間はメニューを開かない")
+        let withoutMenu = SplitMenuPressTracker(hasMenu: false)
+        XCTAssertEqual(withoutMenu.outcome(elapsed: 5, release: .notYet, isOver: true), .pending, "メニューの無いボタンは押し続けても離すまで待つ")
+        XCTAssertEqual(withoutMenu.outcome(elapsed: 5, release: .inside, isOver: true), .primary)
+    }
+
+    func test_枠付きのときcontrolが自分で追う操作とメニューをcoordinatorに配線する() throws {
+        let log = Log()
+        func view(disabled: Bool, items: [StandardSplitMenuButton.Item]) -> some View {
+            StandardSplitMenuButton("-1 Min", systemImage: "gobackward", items: items, border: border) {
+                log.calls.append("primary")
+            }
+                .disabled(disabled)
+        }
+        let items: [StandardSplitMenuButton.Item] = [.init("-30s") { log.calls.append("-30s") }]
+        let host = NSHostingView(rootView: view(disabled: false, items: items))
+        host.frame = NSRect(x: 0, y: 0, width: 300, height: 60)
+        host.layoutSubtreeIfNeeded()
+        retained.append(host)
+        let control = try XCTUnwrap(segmentedControl(in: host) as? SplitMenuSegmentedControl)
+
+        control.primaryAction?()
+        XCTAssertEqual(log.calls, ["primary"])
+        XCTAssertEqual(control.menuProvider?()?.items.map(\.title), ["-30s"])
+
+        host.rootView = view(disabled: true, items: items)
+        host.layoutSubtreeIfNeeded()
+        control.primaryAction?()
+        XCTAssertEqual(log.calls, ["primary"], "押せない間は主の操作を呼ばない")
+        XCTAssertNil(control.menuProvider?() ?? nil, "押せない間はメニューを開かない")
+
+        host.rootView = view(disabled: false, items: [])
+        host.layoutSubtreeIfNeeded()
+        XCTAssertNil(control.menuProvider?() ?? nil, "項目が無ければメニューを開かない")
     }
 
     private func segmentedControl(in view: NSView) -> NSSegmentedControl? {
