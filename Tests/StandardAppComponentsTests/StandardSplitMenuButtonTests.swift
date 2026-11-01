@@ -102,6 +102,34 @@ final class StandardSplitMenuButtonTests: XCTestCase {
         XCTAssertEqual(presented, 0)
     }
 
+    func test_押せる_押せないを行き来すると右クリックのメニューと操作が付いてくる() throws {
+        let log = Log()
+        func view(disabled: Bool) -> some View {
+            StandardSplitMenuButton("-1 Min", systemImage: "gobackward", items: [
+                .init("-30s") { log.calls.append("-30s") }
+            ]) { log.calls.append("primary") }
+                .disabled(disabled)
+        }
+        let host = NSHostingView(rootView: view(disabled: false))
+        host.frame = NSRect(x: 0, y: 0, width: 300, height: 60)
+        host.layoutSubtreeIfNeeded()
+        let control = try XCTUnwrap(segmentedControl(in: host))
+        let coordinator = try XCTUnwrap(control.target as? StandardSplitMenuButton.Coordinator)
+        XCTAssertNotNil(control.menu)
+
+        host.rootView = view(disabled: true)
+        host.layoutSubtreeIfNeeded()
+        XCTAssertNil(control.menu, "押せなくなったら右クリックのメニューを外す")
+        coordinator.handleClick(segment: StandardSplitMenuButton.actionSegment, in: control)
+        XCTAssertEqual(log.calls, [], "押せなくなった後は操作を呼ばない")
+
+        host.rootView = view(disabled: false)
+        host.layoutSubtreeIfNeeded()
+        XCTAssertNotNil(control.menu, "押せるようになったら右クリックのメニューが戻る")
+        coordinator.handleClick(segment: StandardSplitMenuButton.actionSegment, in: control)
+        XCTAssertEqual(log.calls, ["primary"])
+    }
+
     func test_右の区画のメニューは右の区画の左端の下に開く() throws {
         let control = try makeButton(log: Log())
         control.frame = NSRect(x: 0, y: 0, width: 150, height: 30)
