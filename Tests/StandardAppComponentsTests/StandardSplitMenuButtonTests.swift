@@ -298,6 +298,27 @@ final class StandardSplitMenuButtonTests: XCTestCase {
         XCTAssertNil(control.menuProvider?() ?? nil, "項目が無ければメニューを開かない")
     }
 
+    func test_項目のアイコンをメニューの先頭に出し_変えたら作り直す() throws {
+        func view(icon: String?) -> some View {
+            StandardSplitMenuButton("Play All", systemImage: "play.fill", items: [
+                .init("Pause All", systemImage: icon) {},
+                .init("Sync Start") {}
+            ]) {}
+        }
+        let host = NSHostingView(rootView: view(icon: "pause.fill"))
+        host.frame = NSRect(x: 0, y: 0, width: 300, height: 60)
+        host.layoutSubtreeIfNeeded()
+        retained.append(host)
+        let control = try XCTUnwrap(segmentedControl(in: host))
+        let menu = try XCTUnwrap(control.menu(forSegment: StandardSplitMenuButton.actionSegment))
+        XCTAssertNotNil(menu.items[0].image)
+        XCTAssertNil(menu.items[1].image, "アイコンを渡さない項目は文字だけ")
+
+        host.rootView = view(icon: nil)
+        host.layoutSubtreeIfNeeded()
+        XCTAssertNil(control.menu(forSegment: StandardSplitMenuButton.actionSegment)?.items[0].image, "アイコンを外したら作り直す")
+    }
+
     private func segmentedControl(in view: NSView) -> NSSegmentedControl? {
         if let control = view as? NSSegmentedControl { return control }
         for subview in view.subviews {

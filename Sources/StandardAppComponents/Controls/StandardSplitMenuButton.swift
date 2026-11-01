@@ -34,10 +34,13 @@ public struct StandardSplitMenuButton: NSViewRepresentable {
     /// メニューの 1 項目
     public struct Item {
         public let title: String
+        /// 項目の先頭に出すアイコン (SF Symbols)。nil なら文字だけ
+        public let systemImage: String?
         public let action: () -> Void
 
-        public init(_ title: String, action: @escaping () -> Void) {
+        public init(_ title: String, systemImage: String? = nil, action: @escaping () -> Void) {
             self.title = title
+            self.systemImage = systemImage
             self.action = action
         }
     }
@@ -189,7 +192,9 @@ public struct StandardSplitMenuButton: NSViewRepresentable {
             }
             control.invalidateIntrinsicContentSize()
         }
-        let menuKey = Coordinator.MenuKey(titles: items.map(\.title), isEnabled: coordinator.isEnabled)
+        let menuKey = Coordinator.MenuKey(
+            titles: items.map(\.title), systemImages: items.map(\.systemImage), isEnabled: coordinator.isEnabled
+        )
         if coordinator.builtMenuKey != menuKey {
             coordinator.builtMenuKey = menuKey
             // 左: 操作とメニューの両方を持つ区画は、クリックで操作、押し続けるとメニュー (AppKit の `setMenu(_:forSegment:)`)。
@@ -260,6 +265,7 @@ public struct StandardSplitMenuButton: NSViewRepresentable {
         /// 今付けているメニューの中身 (項目の名前と押せるか)。同じなら作り直さない (項目の操作は `items` を tag で引くので、名前が同じなら古いメニューのままでよい)
         struct MenuKey: Equatable {
             let titles: [String]
+            let systemImages: [String?]
             let isEnabled: Bool
         }
 
@@ -273,6 +279,7 @@ public struct StandardSplitMenuButton: NSViewRepresentable {
             let menu = NSMenu()
             for (index, item) in items.enumerated() {
                 let menuItem = NSMenuItem(title: item.title, action: #selector(menuItemChosen(_:)), keyEquivalent: "")
+                menuItem.image = item.systemImage.flatMap { NSImage(systemSymbolName: $0, accessibilityDescription: nil) }
                 menuItem.target = self
                 menuItem.tag = index
                 menu.addItem(menuItem)
