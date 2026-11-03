@@ -133,7 +133,7 @@ final class StandardSplitMenuButtonTests: XCTestCase {
     func test_右の区画のメニューは右の区画の左端の下に開く() throws {
         let control = try makeButton(log: Log())
         control.frame = NSRect(x: 0, y: 0, width: 150, height: 30)
-        let origin = StandardSplitMenuButton.menuOrigin(in: control)
+        let origin = StandardSplitMenuButton.menuOrigin(in: control, segments: SplitMenuSegments(hasMenu: true, menuEdge: .trailing))
         XCTAssertEqual(origin.x, 150 - 26 - 4, accuracy: 0.5)
         XCTAssertEqual(origin.y, control.isFlipped ? 34 : -4, accuracy: 0.5)
     }
@@ -210,6 +210,50 @@ final class StandardSplitMenuButtonTests: XCTestCase {
         host.layoutSubtreeIfNeeded()
         retained.append(host)
         return try XCTUnwrap(segmentedControl(in: host) as? SplitMenuSegmentedControl)
+    }
+
+    /// ⌄ を左に置く (戻すボタンを左右対称に並べる)。区画の番号は左から ⌄・主になり、クリックの振り分け・当たり判定・長押しのメニューが付く区画が入れ替わる
+    func test_menuEdgeがleadingなら左の区画がメニューで右の区画が主の操作() throws {
+        let log = Log()
+        let control = try hostedControl(
+            StandardSplitMenuButton("-1m", systemImage: "gobackward", items: [
+                .init("-30s") { log.calls.append("-30s") }
+            ], border: border, menuEdge: .leading) { log.calls.append("primary") }
+        )
+        let coordinator = try XCTUnwrap(control.target as? StandardSplitMenuButton.Coordinator)
+        var presented = 0
+        coordinator.presentMenu = { _, _ in presented += 1 }
+        control.frame = NSRect(x: 0, y: 0, width: 150, height: 30)
+
+        XCTAssertEqual(control.segmentCount, 2)
+        XCTAssertEqual(control.label(forSegment: 1), "-1m", "主の区画は右 (番号 1)")
+        XCTAssertEqual(control.width(forSegment: 0), border.menuSegmentWidth, "⌄ の区画は左 (番号 0)")
+        XCTAssertNotNil(control.menu(forSegment: 1), "長押しのメニューは主の区画に付く")
+        XCTAssertNil(control.menu(forSegment: 0))
+        XCTAssertEqual(control.segment(atX: 5), 0, "左端は ⌄")
+        XCTAssertEqual(control.segment(atX: 140), 1, "右端は主")
+
+        coordinator.handleClick(segment: 1, in: control)
+        XCTAssertEqual(log.calls, ["primary"])
+        XCTAssertEqual(presented, 0)
+        coordinator.handleClick(segment: 0, in: control)
+        XCTAssertEqual(presented, 1, "左の ⌄ でメニュー")
+        XCTAssertEqual(log.calls, ["primary"])
+    }
+
+    func test_区画の並びはメニューを置く側とメニューの有無で決まる() {
+        let trailing = SplitMenuSegments(hasMenu: true, menuEdge: .trailing)
+        XCTAssertEqual([trailing.action, trailing.menu], [0, 1])
+        let leading = SplitMenuSegments(hasMenu: true, menuEdge: .leading)
+        XCTAssertEqual([leading.action, leading.menu], [1, 0])
+        let single = SplitMenuSegments(hasMenu: false, menuEdge: .leading)
+        XCTAssertEqual([single.action, single.menu], [0, nil], "メニューが無ければ区画 1 つ")
+
+        let rect = NSRect(x: 0, y: 0, width: 100, height: 30)
+        XCTAssertEqual(leading.frames(in: rect, menuWidth: 26).map(\.width), [26, 74], "⌄ を左に置くと左の区画が ⌄ の幅")
+        XCTAssertEqual(trailing.frames(in: rect, menuWidth: 26).map(\.width), [74, 26])
+        XCTAssertEqual(leading.menuOriginX(width: 100, menuWidth: 26), 0, "⌄ が左ならボタンの左端の下に開く")
+        XCTAssertEqual(trailing.menuOriginX(width: 100, menuWidth: 26), 70)
     }
 
     func test_項目が空なら区画1つの普通のボタンでメニューを持たない() throws {
