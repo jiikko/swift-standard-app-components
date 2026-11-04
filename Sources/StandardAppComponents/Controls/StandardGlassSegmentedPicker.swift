@@ -78,6 +78,24 @@ public struct StandardGlassSegmentedPicker<Value: Hashable>: View {
         self.onSelect = onSelect
     }
 
+    /// SF Symbols に無い絵 (consumer が描いた template の `NSImage` を `Image(nsImage:)` にしたものなど) を混ぜて並べる。
+    /// `imageSize` は `.font` で当てる大きさ (SF Symbols の絵に効く。描いた絵は自分の大きさで出る)。nil なら 13pt
+    public init(
+        _ options: [Value],
+        selection: Value,
+        image: @escaping (Value) -> Image,
+        label: @escaping (Value) -> String,
+        imageSize: ((Value) -> CGFloat)? = nil,
+        onSelect: @escaping (Value) -> Void
+    ) {
+        self.options = options
+        self.selection = selection
+        self.content = { value in
+            .image(image(value), label: label(value), size: imageSize?(value) ?? GlassSegmentedMetrics.symbolSize)
+        }
+        self.onSelect = onSelect
+    }
+
     public var body: some View {
         HStack(spacing: 0) {
             ForEach(options, id: \.self) { option in
@@ -116,6 +134,11 @@ public struct StandardGlassSegmentedPicker<Value: Hashable>: View {
                 .font(.system(size: size, weight: weight))
                 .help(Text(verbatim: label))
                 .accessibilityLabel(Text(verbatim: label))
+        case let .image(image, label, size):
+            image
+                .font(.system(size: size, weight: weight))
+                .help(Text(verbatim: label))
+                .accessibilityLabel(Text(verbatim: label))
         }
     }
 }
@@ -124,6 +147,7 @@ public struct StandardGlassSegmentedPicker<Value: Hashable>: View {
 private enum SegmentContent {
     case text(String)
     case symbol(name: String, label: String, size: CGFloat)
+    case image(Image, label: String, size: CGFloat)
 }
 
 /// 寸法。generic な型の中には static な格納プロパティを置けないので外に出す
