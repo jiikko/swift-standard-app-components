@@ -38,6 +38,8 @@ final class SplitMenuSegmentedControl: NSSegmentedControl {
     var primaryAction: (() -> Void)?
     /// 開くメニュー (無ければメニューを持たないボタン)
     var menuProvider: (() -> NSMenu?)?
+    /// ⌄ の区画の押下でメニューの代わりに呼ぶもの (`ChevronPresentation.popover`)。nil ならメニューを開く
+    var chevronAction: (() -> Void)?
     /// メニューを `point` (control の座標) に開く。テストでは差し替える (`popUp` はメニューを閉じるまで戻らない)
     var presentMenuAt: (NSMenu, NSPoint, SplitMenuSegmentedControl) -> Void = { menu, point, control in
         menu.popUp(positioning: nil, at: point, in: control)
@@ -123,8 +125,12 @@ final class SplitMenuSegmentedControl: NSSegmentedControl {
         pressedSegment = segment
         display()
         if segment == segments.menu {
-            // ⌄: 押した時点でメニューを開く (標準のプルダウンと同じ。押したまま項目まで動かして離しても決まる)
-            openMenu(below: segment)
+            // ⌄: 押した時点でメニューを開く (標準のプルダウンと同じ。押したまま項目まで動かして離しても決まる)。ポップオーバーなら coordinator が出す
+            if let chevronAction {
+                chevronAction()
+            } else {
+                openMenu(below: segment)
+            }
         } else {
             trackActionSegment()
         }

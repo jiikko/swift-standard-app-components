@@ -363,6 +363,105 @@ final class StandardSplitMenuButtonTests: XCTestCase {
         XCTAssertNil(control.menu(forSegment: StandardSplitMenuButton.actionSegment)?.items[0].image, "アイコンを外したら作り直す")
     }
 
+    // MARK: - ⌄ のクリックでポップオーバー (`ChevronPresentation.popover`)
+
+    private func makePopoverButton(log: Log, border: StandardSplitMenuButton.Border? = nil) throws -> NSSegmentedControl {
+        let view = StandardSplitMenuButton("-1 Min", systemImage: "gobackward", items: [
+            .init("-30s") { log.calls.append("-30s") },
+            .init("-3m", isChecked: true) { log.calls.append("-3m") }
+        ], border: border, chevronPresentation: .popover) { log.calls.append("primary") }
+        let host = NSHostingView(rootView: view)
+        host.frame = NSRect(x: 0, y: 0, width: 300, height: 60)
+        host.layoutSubtreeIfNeeded()
+        retained.append(host)
+        return try XCTUnwrap(segmentedControl(in: host))
+    }
+
+    func test_popoverなら右の区画のクリックはメニューでなく右の区画の上にポップオーバーを開く() throws {
+        let log = Log()
+        let control = try makePopoverButton(log: log)
+        let coordinator = try XCTUnwrap(control.target as? StandardSplitMenuButton.Coordinator)
+        var menus = 0
+        coordinator.presentMenu = { _, _ in menus += 1 }
+        var presented: [(NSPopover, NSRect)] = []
+        coordinator.popoverPresenter.present = { popover, rect, _ in presented.append((popover, rect)) }
+
+        coordinator.handleClick(segment: StandardSplitMenuButton.menuSegment, in: control)
+
+        XCTAssertEqual(menus, 0, "標準のメニューは開かない")
+        XCTAssertEqual(presented.count, 1)
+        let (popover, rect) = try XCTUnwrap(presented.first)
+        XCTAssertEqual(popover.behavior, .transient, "外のクリックで閉じる")
+        XCTAssertTrue(popover.contentViewController is NSHostingController<StandardPopoverMenu>, "中身は項目のリスト")
+        let menuWidth = control.width(forSegment: StandardSplitMenuButton.menuSegment)
+        XCTAssertEqual(rect.maxX, control.bounds.maxX, accuracy: 1, "矢印は ⌄ の区画 (右端) に向ける")
+        XCTAssertEqual(rect.width, menuWidth, accuracy: 1)
+        XCTAssertEqual(log.calls, [], "開くだけでは何も呼ばない")
+
+        coordinator.handleClick(segment: StandardSplitMenuButton.actionSegment, in: control)
+        XCTAssertEqual(log.calls, ["primary"], "左の区画は今までどおり主の操作")
+    }
+
+    func test_popoverでも長押しと右クリックは標準のメニューのまま() throws {
+        let control = try makePopoverButton(log: Log())
+        XCTAssertEqual(control.menu(forSegment: StandardSplitMenuButton.actionSegment)?.items.map(\.title), ["-30s", "-3m"])
+        XCTAssertEqual(control.menu?.items.map(\.title), ["-30s", "-3m"])
+    }
+
+    func test_枠付きでpopoverならcontrolの右の区画の押下をポップオーバーへ_menuなら配線しない() throws {
+        let log = Log()
+        let control = try XCTUnwrap(makePopoverButton(log: log, border: border) as? SplitMenuSegmentedControl)
+        let coordinator = try XCTUnwrap(control.target as? StandardSplitMenuButton.Coordinator)
+        var presented = 0
+        coordinator.popoverPresenter.present = { _, _, _ in presented += 1 }
+        let chevronAction = try XCTUnwrap(control.chevronAction, "popover なら ⌄ の押下を coordinator へ")
+        chevronAction()
+        XCTAssertEqual(presented, 1)
+
+        let menuControl = try XCTUnwrap(makeBorderedMenuButton() as? SplitMenuSegmentedControl)
+        XCTAssertNil(menuControl.chevronAction, "menu なら control がメニューを開く")
+    }
+
+    private func makeBorderedMenuButton() throws -> NSSegmentedControl {
+        let host = NSHostingView(rootView: StandardSplitMenuButton("-1 Min", systemImage: "gobackward", items: [.init("-30s") {}], border: border) {})
+        host.frame = NSRect(x: 0, y: 0, width: 300, height: 60)
+        host.layoutSubtreeIfNeeded()
+        retained.append(host)
+        return try XCTUnwrap(segmentedControl(in: host))
+    }
+
+    func test_ポップオーバーの項目を選ぶとその操作を呼び_押せない間は呼ばない() throws {
+        let log = Log()
+        let control = try makePopoverButton(log: log)
+        let coordinator = try XCTUnwrap(control.target as? StandardSplitMenuButton.Coordinator)
+        coordinator.chooseItem(at: 1)
+        XCTAssertEqual(log.calls, ["-3m"])
+        coordinator.chooseItem(at: 5)
+        XCTAssertEqual(log.calls, ["-3m"], "範囲の外は何もしない")
+        coordinator.isEnabled = false
+        coordinator.chooseItem(at: 0)
+        XCTAssertEqual(log.calls, ["-3m"], "押せない間は呼ばない")
+    }
+
+    func test_isCheckedの項目は標準のメニューで状態がon_変えたら作り直す() throws {
+        func view(checked: Bool) -> some View {
+            StandardSplitMenuButton("Speed", systemImage: "gauge.with.dots.needle.33percent", items: [
+                .init("1.00x", isChecked: checked) {},
+                .init("1.50x") {}
+            ]) {}
+        }
+        let host = NSHostingView(rootView: view(checked: true))
+        host.frame = NSRect(x: 0, y: 0, width: 300, height: 60)
+        host.layoutSubtreeIfNeeded()
+        retained.append(host)
+        let control = try XCTUnwrap(segmentedControl(in: host))
+        XCTAssertEqual(control.menu?.items.map(\.state), [.on, .off])
+
+        host.rootView = view(checked: false)
+        host.layoutSubtreeIfNeeded()
+        XCTAssertEqual(control.menu?.items.map(\.state), [.off, .off], "✓ を外したら作り直す")
+    }
+
     private func segmentedControl(in view: NSView) -> NSSegmentedControl? {
         if let control = view as? NSSegmentedControl { return control }
         for subview in view.subviews {

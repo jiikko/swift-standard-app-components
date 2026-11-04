@@ -5,7 +5,9 @@ import SwiftUI
 ///
 /// - 主の区画 (アイコン + 名前): クリックで主の操作、押し続けるとメニュー (押したまま項目まで動かして離すと決まる)。
 ///   押し続けられることを示す小さな ▼ を、⌄ の側の上の角に描く
-/// - ⌄ の区画: クリックでその下にメニュー。既定は右端 (`menuEdge: .trailing`)。`.leading` で左端に置く
+/// - ⌄ の区画: クリックでその下にメニュー。既定は右端 (`menuEdge: .trailing`)。`.leading` で左端に置く。
+///   `chevronPresentation: .popover` なら、メニューの代わりに ⌄ の区画の上へ矢印付きのポップオーバーで同じ項目のリスト
+///   (`StandardPopoverMenu`) を出す (外のクリックで閉じる。もう一度 ⌄ を押しても閉じる)。長押し・右クリックは標準のメニューのまま
 ///   (戻す・進めるのボタンを左右対称に並べるとき。区画の番号も左から ⌄・主の順になる。`SplitMenuSegments`)
 /// - 右クリック (control-クリック) でも同じメニュー
 ///
@@ -37,13 +39,24 @@ public struct StandardSplitMenuButton: NSViewRepresentable {
         public let title: String
         /// 項目の先頭に出すアイコン (SF Symbols)。nil なら文字だけ
         public let systemImage: String?
+        /// 項目の左に ✓ を付けるか (今の値など。標準メニューの状態 `.on` とポップオーバーの ✓)
+        public let isChecked: Bool
         public let action: () -> Void
 
-        public init(_ title: String, systemImage: String? = nil, action: @escaping () -> Void) {
+        public init(_ title: String, systemImage: String? = nil, isChecked: Bool = false, action: @escaping () -> Void) {
             self.title = title
             self.systemImage = systemImage
+            self.isChecked = isChecked
             self.action = action
         }
+    }
+
+    /// ⌄ の区画のクリックで出すもの
+    public enum ChevronPresentation: Equatable, Sendable {
+        /// macOS の標準メニュー (区画の下に開く)
+        case menu
+        /// 区画の上に矢印付きのポップオーバーで項目のリスト (`StandardPopoverMenu`)。画面の端で入らなければ AppKit が下へ回す
+        case popover
     }
 
     /// ⌄ の区画を置く側
@@ -58,6 +71,7 @@ public struct StandardSplitMenuButton: NSViewRepresentable {
     private let border: Border?
     private let widthAlternatives: [(title: String, systemImage: String)]
     private let menuEdge: MenuEdge
+    private let chevronPresentation: ChevronPresentation
     private let action: () -> Void
 
     /// - Parameters:
@@ -67,6 +81,7 @@ public struct StandardSplitMenuButton: NSViewRepresentable {
     ///   - border: 枠付きの見た目。nil なら macOS 標準の描画
     ///   - widthAlternatives: 切り替わる先の名前とアイコン。主の区画の幅をこれらと今の中身のいちばん広いものに揃える (枠付きのときだけ)
     ///   - menuEdge: ⌄ の区画を置く側 (既定は右)
+    ///   - chevronPresentation: ⌄ の区画のクリックで出すもの (既定は標準のメニュー)
     ///   - action: 主の区画のクリックで呼ぶ主の操作
     public init(
         _ title: String,
@@ -75,6 +90,7 @@ public struct StandardSplitMenuButton: NSViewRepresentable {
         border: Border? = nil,
         reservingWidthFor widthAlternatives: [(title: String, systemImage: String)] = [],
         menuEdge: MenuEdge = .trailing,
+        chevronPresentation: ChevronPresentation = .menu,
         action: @escaping () -> Void
     ) {
         self.title = title
@@ -83,6 +99,7 @@ public struct StandardSplitMenuButton: NSViewRepresentable {
         self.border = border
         self.widthAlternatives = widthAlternatives
         self.menuEdge = menuEdge
+        self.chevronPresentation = chevronPresentation
         self.action = action
     }
 
@@ -106,6 +123,7 @@ public struct StandardSplitMenuButton: NSViewRepresentable {
         coordinator.action = action
         coordinator.items = items
         coordinator.isEnabled = context.environment.isEnabled
+        coordinator.chevronPresentation = chevronPresentation
         let hasMenu = !items.isEmpty
         let segments = SplitMenuSegments(hasMenu: hasMenu, menuEdge: menuEdge)
         coordinator.segments = segments
@@ -126,10 +144,18 @@ public struct StandardSplitMenuButton: NSViewRepresentable {
                 guard let coordinator, coordinator.isEnabled, !coordinator.items.isEmpty else { return nil }
                 return coordinator.makeMenu()
             }
+            // ⌄ の押下: ポップオーバーなら coordinator が出す (nil なら control がメニューを開く)
+            control.chevronAction = chevronPresentation == .popover ? { [weak coordinator, weak control] in
+                guard let coordinator, let control, let menuSegment = coordinator.segments.menu else { return }
+                coordinator.handleClick(segment: menuSegment, in: control)
+            } : nil
         }
         applyWidths(to: control, segments: segments)
         let menuKey = Coordinator.MenuKey(
-            titles: items.map(\.title), systemImages: items.map(\.systemImage), isEnabled: coordinator.isEnabled
+            titles: items.map(\.title),
+            systemImages: items.map(\.systemImage),
+            checked: items.map(\.isChecked),
+            isEnabled: coordinator.isEnabled
         )
         if coordinator.builtMenuKey != menuKey {
             coordinator.builtMenuKey = menuKey
@@ -234,12 +260,14 @@ public struct StandardSplitMenuButton: NSViewRepresentable {
     public final class Coordinator: NSObject, NSMenuItemValidation {
         var action: () -> Void = {}
         var items: [Item] = []
+        var chevronPresentation: ChevronPresentation = .menu
         /// `.disabled` の間は操作もメニューの項目も呼ばない (メニューを開く経路は右クリック・VoiceOver など control の外にもある)
         var isEnabled = true
         /// 今付けているメニューの中身 (項目の名前と押せるか)。同じなら作り直さない (項目の操作は `items` を tag で引くので、名前が同じなら古いメニューのままでよい)
         struct MenuKey: Equatable {
             let titles: [String]
             let systemImages: [String?]
+            let checked: [Bool]
             let isEnabled: Bool
         }
 
@@ -252,6 +280,9 @@ public struct StandardSplitMenuButton: NSViewRepresentable {
             menu.popUp(positioning: nil, at: StandardSplitMenuButton.menuOrigin(in: control, segments: segments), in: control)
         }
 
+        /// `ChevronPresentation.popover` のポップオーバー
+        let popoverPresenter = SplitMenuPopoverPresenter()
+
         func makeMenu() -> NSMenu {
             let menu = NSMenu()
             for (index, item) in items.enumerated() {
@@ -259,6 +290,7 @@ public struct StandardSplitMenuButton: NSViewRepresentable {
                 menuItem.image = item.systemImage.flatMap { NSImage(systemSymbolName: $0, accessibilityDescription: nil) }
                 menuItem.target = self
                 menuItem.tag = index
+                menuItem.state = item.isChecked ? .on : .off
                 menu.addItem(menuItem)
             }
             return menu
@@ -274,8 +306,20 @@ public struct StandardSplitMenuButton: NSViewRepresentable {
             if segment == segments.action {
                 action()
             } else if segment == segments.menu, !items.isEmpty {
-                presentMenu(makeMenu(), control)
+                switch chevronPresentation {
+                case .menu:
+                    presentMenu(makeMenu(), control)
+                case .popover:
+                    popoverPresenter.toggle(items: items, in: control, segments: segments) { [weak self] index in
+                        self?.chooseItem(at: index)
+                    }
+                }
             }
+        }
+
+        func chooseItem(at index: Int) {
+            guard isEnabled, items.indices.contains(index) else { return }
+            items[index].action()
         }
 
         public func validateMenuItem(_ menuItem: NSMenuItem) -> Bool {
@@ -283,8 +327,7 @@ public struct StandardSplitMenuButton: NSViewRepresentable {
         }
 
         @objc func menuItemChosen(_ sender: NSMenuItem) {
-            guard isEnabled, items.indices.contains(sender.tag) else { return }
-            items[sender.tag].action()
+            chooseItem(at: sender.tag)
         }
     }
 }
