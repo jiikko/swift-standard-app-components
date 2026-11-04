@@ -107,6 +107,11 @@ public struct StandardSplitMenuButton: NSViewRepresentable {
         Coordinator()
     }
 
+    /// 画面から外れたら (タブの切り替えなど) 開いているリストを閉じる。残すと、外れたボタンの位置に浮いたままになる
+    public static func dismantleNSView(_ control: NSSegmentedControl, coordinator: Coordinator) {
+        coordinator.popoverPresenter.close()
+    }
+
     public func makeNSView(context: Context) -> NSSegmentedControl {
         let control = SplitMenuSegmentedControl()
         control.cell = LongPressHintSegmentedCell()
@@ -124,6 +129,10 @@ public struct StandardSplitMenuButton: NSViewRepresentable {
         coordinator.items = items
         coordinator.isEnabled = context.environment.isEnabled
         coordinator.chevronPresentation = chevronPresentation
+        if !coordinator.isEnabled || chevronPresentation != .popover {
+            // 押せなくなったら開いているリストも閉じる (残すと、押しても何も起きない項目が並ぶ)
+            coordinator.popoverPresenter.close()
+        }
         let hasMenu = !items.isEmpty
         let segments = SplitMenuSegments(hasMenu: hasMenu, menuEdge: menuEdge)
         coordinator.segments = segments

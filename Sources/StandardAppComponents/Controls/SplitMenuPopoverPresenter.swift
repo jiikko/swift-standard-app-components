@@ -25,6 +25,8 @@ final class SplitMenuPopoverPresenter: NSObject, NSPopoverDelegate {
         choose: @escaping (Int) -> Void
     ) {
         if let popover, popover.isShown {
+            // 外のクリックで閉じ始めた後に同じ押下が届いたときもここに来る。覚えた番号は使い終えたので消す
+            dismissingClickNumber = nil
             popover.performClose(nil)
             return
         }
@@ -46,6 +48,11 @@ final class SplitMenuPopoverPresenter: NSObject, NSPopoverDelegate {
         present(popover, Self.menuSegmentRect(in: control, segments: segments), control)
     }
 
+    /// 閉じる (ボタンが押せなくなった・画面から外れた)
+    func close() {
+        popover?.performClose(nil)
+    }
+
     /// ⌄ の区画の範囲 (control の座標)
     static func menuSegmentRect(in control: NSSegmentedControl, segments: SplitMenuSegments) -> NSRect {
         guard let menuSegment = segments.menu else { return control.bounds }
@@ -61,6 +68,8 @@ final class SplitMenuPopoverPresenter: NSObject, NSPopoverDelegate {
     }
 
     func popoverDidClose(_ notification: Notification) {
+        // 閉じる途中に開き直していたら、閉じたのは前のポップオーバー。今のものは見失わない
+        guard (notification.object as? NSPopover) === popover else { return }
         popover = nil
     }
 }

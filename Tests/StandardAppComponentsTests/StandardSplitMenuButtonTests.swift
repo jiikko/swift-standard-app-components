@@ -430,6 +430,23 @@ final class StandardSplitMenuButtonTests: XCTestCase {
         return try XCTUnwrap(segmentedControl(in: host))
     }
 
+    func test_前のポップオーバーの閉じた知らせで今のポップオーバーを見失わない() throws {
+        let control = try makePopoverButton(log: Log())
+        let coordinator = try XCTUnwrap(control.target as? StandardSplitMenuButton.Coordinator)
+        let presenter = coordinator.popoverPresenter
+        presenter.present = { _, _, _ in }
+        coordinator.handleClick(segment: StandardSplitMenuButton.menuSegment, in: control)
+        let first = try XCTUnwrap(presenter.popover)
+        coordinator.handleClick(segment: StandardSplitMenuButton.menuSegment, in: control)
+        let second = try XCTUnwrap(presenter.popover)
+        XCTAssertFalse(first === second)
+
+        presenter.popoverDidClose(Notification(name: NSPopover.didCloseNotification, object: first))
+        XCTAssertTrue(presenter.popover === second, "閉じたのは前のもの")
+        presenter.popoverDidClose(Notification(name: NSPopover.didCloseNotification, object: second))
+        XCTAssertNil(presenter.popover)
+    }
+
     func test_ポップオーバーの項目を選ぶとその操作を呼び_押せない間は呼ばない() throws {
         let log = Log()
         let control = try makePopoverButton(log: log)
