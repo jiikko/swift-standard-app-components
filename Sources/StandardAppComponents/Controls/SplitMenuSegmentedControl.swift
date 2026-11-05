@@ -42,6 +42,9 @@ final class SplitMenuSegmentedControl: NSSegmentedControl {
     var chevronAction: (() -> Void)?
     /// 主の区画の長押しでメニューの代わりに呼ぶもの (`ChevronPresentation.popover`)。nil ならメニューを開く
     var longPressAction: (() -> Void)?
+    /// ポップオーバーを開いた押下を離すまで、カーソルの位置 (画面の座標) を渡す先 (`.popover`。押している間のマウスはこのウィンドウに届く)
+    var popoverDragMoved: ((NSPoint) -> Void)?
+    var popoverDragEnded: ((NSPoint) -> Void)?
     /// メニューを `point` (control の座標) に開く。テストでは差し替える (`popUp` はメニューを閉じるまで戻らない)
     var presentMenuAt: (NSMenu, NSPoint, SplitMenuSegmentedControl) -> Void = { menu, point, control in
         menu.popUp(positioning: nil, at: point, in: control)
@@ -66,6 +69,13 @@ final class SplitMenuSegmentedControl: NSSegmentedControl {
         longPressAction = chevronPresentation == .popover ? { [weak coordinator, weak self] in
             guard let coordinator, let self else { return }
             coordinator.presentItemsPopover(in: self)
+        } : nil
+        // ポップオーバーを開いたまま押し続けて項目の上で離すと選ぶ (標準のメニューと同じ。2026-11-05 ユーザー指示)
+        popoverDragMoved = chevronPresentation == .popover ? { [weak coordinator] point in
+            coordinator?.popoverPresenter.dragMoved(toScreen: point)
+        } : nil
+        popoverDragEnded = chevronPresentation == .popover ? { [weak coordinator] point in
+            coordinator?.popoverPresenter.dragEnded(atScreen: point)
         } : nil
     }
 
@@ -152,6 +162,7 @@ final class SplitMenuSegmentedControl: NSSegmentedControl {
             // ⌄: 押した時点でメニューを開く (標準のプルダウンと同じ。押したまま項目まで動かして離しても決まる)。ポップオーバーなら coordinator が出す
             if let chevronAction {
                 chevronAction()
+                trackPressIntoPopover()
             } else {
                 openMenu(below: segment)
             }
@@ -203,6 +214,7 @@ final class SplitMenuSegmentedControl: NSSegmentedControl {
             case .menu:
                 if let longPressAction {
                     longPressAction()
+                    trackPressIntoPopover()
                 } else {
                     openMenu(below: actionSegment)
                 }
@@ -210,6 +222,20 @@ final class SplitMenuSegmentedControl: NSSegmentedControl {
                 break
             }
             return
+        }
+    }
+
+    /// ポップオーバーを開いた押下を、離すまで追う。動かしたらカーソルの下の行を塗り、行の上で離したら選ぶ
+    private func trackPressIntoPopover() {
+        guard let popoverDragMoved, let popoverDragEnded else { return }
+        let mask: NSEvent.EventTypeMask = [.leftMouseUp, .leftMouseDragged]
+        while let window, let next = window.nextEvent(matching: mask, until: .distantFuture, inMode: .eventTracking, dequeue: true) {
+            let point = window.convertPoint(toScreen: next.locationInWindow)
+            if next.type == .leftMouseUp {
+                popoverDragEnded(point)
+                return
+            }
+            popoverDragMoved(point)
         }
     }
 
