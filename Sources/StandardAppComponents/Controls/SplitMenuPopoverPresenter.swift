@@ -5,16 +5,20 @@ import SwiftUI
 /// ポップオーバーを出す。外のクリックで閉じ (`.transient`)、もう一度 ⌄ を押しても閉じる。項目を選ぶと閉じてから操作を呼ぶ
 @MainActor
 final class SplitMenuPopoverPresenter: NSObject, NSPopoverDelegate {
-    /// 開く (`rect` は control の座標の ⌄ の区画)。テストでは差し替える
-    var present: (NSPopover, NSRect, NSSegmentedControl) -> Void = { popover, rect, control in
-        popover.show(relativeTo: rect, of: control, preferredEdge: control.isFlipped ? .minY : .maxY)
+    /// 開く (`rect` は `view` の座標。その上に出す)。テストでは差し替える
+    var present: (NSPopover, NSRect, NSView) -> Void = { popover, rect, view in
+        popover.show(relativeTo: rect, of: view, preferredEdge: view.isFlipped ? .minY : .maxY)
     }
+    /// 開いた・閉じた (`StandardPopoverMenuButton` が開いている間の塗りに使う)
+    var onShownChange: ((Bool) -> Void)?
 
     /// 開いているポップオーバー
     private(set) var popover: NSPopover?
     /// 開いているポップオーバーの、押したまま動かしている間の状態と、項目を選んだときの操作
     private(set) var drag: StandardPopoverMenuDrag?
     private var choose: ((Int) -> Void)?
+    /// 開いているポップオーバーの中身。開いている間に項目が変わったら描き直す (`update(items:)`)
+    private var hosting: NSHostingController<StandardPopoverMenu>?
     /// 画面の座標を、開いているポップオーバーの中身の座標 (左上が原点) に直す。開いていなければ nil。テストでは差し替える
     var locateInContent: (NSPopover, NSPoint) -> CGPoint? = { popover, screenPoint in
         guard popover.isShown, let view = popover.contentViewController?.view, let window = view.window else { return nil }
@@ -26,11 +30,21 @@ final class SplitMenuPopoverPresenter: NSObject, NSPopoverDelegate {
     /// 離しの `eventNumber` は押下と同じ)
     private var dismissingClickNumber: Int?
 
-    /// 開く。開いていれば閉じる
+    /// ⌄ の区画の上に開く。開いていれば閉じる
     func toggle(
         items: [StandardSplitMenuButton.Item],
         in control: NSSegmentedControl,
         segments: SplitMenuSegments,
+        choose: @escaping (Int) -> Void
+    ) {
+        toggle(items: items, relativeTo: Self.menuSegmentRect(in: control, segments: segments), of: control, choose: choose)
+    }
+
+    /// `view` の `rect` の上に開く。開いていれば閉じる
+    func toggle(
+        items: [StandardSplitMenuButton.Item],
+        relativeTo rect: NSRect,
+        of view: NSView,
         choose: @escaping (Int) -> Void
     ) {
         if let popover, popover.isShown {
@@ -58,7 +72,15 @@ final class SplitMenuPopoverPresenter: NSObject, NSPopoverDelegate {
         self.popover = popover
         self.drag = drag
         self.choose = chooseAndClose
-        present(popover, Self.menuSegmentRect(in: control, segments: segments), control)
+        self.hosting = hosting
+        present(popover, rect, view)
+        onShownChange?(true)
+    }
+
+    /// 開いている間に項目が変わった (今の倍率の ✓ など)。開いていれば中身を描き直す (選んだときの操作は呼ぶ側が今の項目から引く)
+    func update(items: [StandardSplitMenuButton.Item]) {
+        guard let hosting, let drag, let choose else { return }
+        hosting.rootView = StandardPopoverMenu(items: items, drag: drag, onChoose: choose)
     }
 
     /// 開いたボタンを押したまま動かした (`screenPoint` は画面の座標)。ポップオーバーの行の上なら、その行を塗る
@@ -106,6 +128,7 @@ final class SplitMenuPopoverPresenter: NSObject, NSPopoverDelegate {
         if (notification.object as? NSPopover) === popover {
             drag = nil
             choose = nil
+            hosting = nil
         }
     }
 
@@ -115,5 +138,7 @@ final class SplitMenuPopoverPresenter: NSObject, NSPopoverDelegate {
         popover = nil
         drag = nil
         choose = nil
+        hosting = nil
+        onShownChange?(false)
     }
 }

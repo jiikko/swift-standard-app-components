@@ -45,6 +45,8 @@ final class SplitMenuSegmentedControl: NSSegmentedControl {
     /// ポップオーバーを開いた押下を離すまで、カーソルの位置 (画面の座標) を渡す先 (`.popover`。押している間のマウスはこのウィンドウに届く)
     var popoverDragMoved: ((NSPoint) -> Void)?
     var popoverDragEnded: ((NSPoint) -> Void)?
+    /// 主の区画を押し続けてメニューを出すまでの時間 (`StandardSplitMenuButton(longPressDelay:)`)
+    var longPressDelay = StandardSplitMenuButton.defaultLongPressDelay
     /// メニューを `point` (control の座標) に開く。テストでは差し替える (`popUp` はメニューを閉じるまで戻らない)
     var presentMenuAt: (NSMenu, NSPoint, SplitMenuSegmentedControl) -> Void = { menu, point, control in
         menu.popUp(positioning: nil, at: point, in: control)
@@ -179,11 +181,11 @@ final class SplitMenuSegmentedControl: NSSegmentedControl {
     /// 主の区画を押してから離すまでを追う。離したら主の操作 (外なら取り消し)、押し続けたらメニュー
     private func trackActionSegment() {
         let actionSegment = segments.action
-        let tracker = SplitMenuPressTracker(hasMenu: menuProvider?() != nil)
+        let tracker = SplitMenuPressTracker(hasMenu: menuProvider?() != nil, longPressDelay: longPressDelay)
         let start = Date()
         var isOver = true
         while let window {
-            let remaining = tracker.hasMenu ? SplitMenuPressTracker.longPressDelay - Date().timeIntervalSince(start) : .infinity
+            let remaining = tracker.hasMenu ? tracker.longPressDelay - Date().timeIntervalSince(start) : .infinity
             let next = window.nextEvent(
                 matching: [.leftMouseUp, .leftMouseDragged],
                 until: remaining.isFinite ? Date(timeIntervalSinceNow: max(remaining, 0)) : .distantFuture,
@@ -228,15 +230,7 @@ final class SplitMenuSegmentedControl: NSSegmentedControl {
     /// ポップオーバーを開いた押下を、離すまで追う。動かしたらカーソルの下の行を塗り、行の上で離したら選ぶ
     private func trackPressIntoPopover() {
         guard let popoverDragMoved, let popoverDragEnded else { return }
-        let mask: NSEvent.EventTypeMask = [.leftMouseUp, .leftMouseDragged]
-        while let window, let next = window.nextEvent(matching: mask, until: .distantFuture, inMode: .eventTracking, dequeue: true) {
-            let point = window.convertPoint(toScreen: next.locationInWindow)
-            if next.type == .leftMouseUp {
-                popoverDragEnded(point)
-                return
-            }
-            popoverDragMoved(point)
-        }
+        PopoverPressTracking.track(in: self, moved: popoverDragMoved, ended: popoverDragEnded)
     }
 
     /// `segment` の区画の左下にメニューを開く

@@ -52,9 +52,6 @@ struct SplitMenuPressTracker {
         case cancel
     }
 
-    /// 押し続けてメニューを出すまでの時間 (旧 `LongPressMenuButton` と同じ)
-    static let longPressDelay: TimeInterval = 0.3
-
     /// 離したかどうかと、離した位置
     enum Release: Equatable {
         case notYet
@@ -63,6 +60,8 @@ struct SplitMenuPressTracker {
     }
 
     let hasMenu: Bool
+    /// 押し続けてメニューを出すまでの時間
+    let longPressDelay: TimeInterval
 
     /// 押してから `elapsed` 秒たった時点で、離したかどうかと離した位置、今カーソルが主の区画の上にあるか (`isOver`) から決める。
     /// 押したまま外へ出している間はメニューを開かない (標準のボタンと同じく、外へ出して離せば取り消せる)
@@ -73,7 +72,7 @@ struct SplitMenuPressTracker {
         case .outside:
             .cancel
         case .notYet:
-            hasMenu && isOver && elapsed >= Self.longPressDelay ? .menu : .pending
+            hasMenu && isOver && elapsed >= longPressDelay ? .menu : .pending
         }
     }
 }

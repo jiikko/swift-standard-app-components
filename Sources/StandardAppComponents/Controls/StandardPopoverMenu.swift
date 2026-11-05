@@ -13,7 +13,7 @@ public struct StandardPopoverMenu: View {
     /// 行の位置を測る座標 (この View の左上が原点。ポップオーバーの中身の左上と同じ)
     static let coordinateSpaceName = "StandardPopoverMenu"
 
-    private let items: [StandardSplitMenuButton.Item]
+    let items: [StandardSplitMenuButton.Item]
     private let onChoose: (Int) -> Void
     @ObservedObject private var drag: StandardPopoverMenuDrag
 

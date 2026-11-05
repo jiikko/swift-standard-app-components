@@ -63,6 +63,9 @@ public struct StandardSplitMenuButton: NSViewRepresentable {
         case popover
     }
 
+    /// 主の区画を押し続けてメニューを出すまでの時間の既定 (旧 `LongPressMenuButton` と同じ)。`init(longPressDelay:)` で変える
+    public static let defaultLongPressDelay: TimeInterval = 0.3
+
     /// ⌄ の区画を置く側
     public enum MenuEdge: Equatable, Sendable {
         case trailing
@@ -76,6 +79,7 @@ public struct StandardSplitMenuButton: NSViewRepresentable {
     private let widthAlternatives: [(title: String, systemImage: String)]
     private let menuEdge: MenuEdge
     private let chevronPresentation: ChevronPresentation
+    private let longPressDelay: TimeInterval
     private let action: () -> Void
 
     /// - Parameters:
@@ -86,6 +90,8 @@ public struct StandardSplitMenuButton: NSViewRepresentable {
     ///   - widthAlternatives: 切り替わる先の名前とアイコン。主の区画の幅をこれらと今の中身のいちばん広いものに揃える (枠付きのときだけ)
     ///   - menuEdge: ⌄ の区画を置く側 (既定は右)
     ///   - chevronPresentation: ⌄ の区画のクリックで出すもの (既定は標準のメニュー)
+    ///   - longPressDelay: 主の区画を押し続けてメニューを出すまでの秒数 (枠付きのときだけ。枠なしは AppKit が決める)。
+    ///     短くするほど、普通のクリックの押している間 (100ms 前後) が長押しに数えられやすくなる
     ///   - action: 主の区画のクリックで呼ぶ主の操作
     public init(
         _ title: String,
@@ -95,8 +101,10 @@ public struct StandardSplitMenuButton: NSViewRepresentable {
         reservingWidthFor widthAlternatives: [(title: String, systemImage: String)] = [],
         menuEdge: MenuEdge = .trailing,
         chevronPresentation: ChevronPresentation = .menu,
+        longPressDelay: TimeInterval = StandardSplitMenuButton.defaultLongPressDelay,
         action: @escaping () -> Void
     ) {
+        self.longPressDelay = longPressDelay
         self.title = title
         self.systemImage = systemImage
         self.items = items
@@ -131,6 +139,7 @@ public struct StandardSplitMenuButton: NSViewRepresentable {
         let coordinator = context.coordinator
         coordinator.action = action
         coordinator.items = items
+        coordinator.popoverPresenter.update(items: items)
         coordinator.isEnabled = context.environment.isEnabled
         coordinator.chevronPresentation = chevronPresentation
         if !coordinator.isEnabled || chevronPresentation != .popover {
@@ -148,6 +157,7 @@ public struct StandardSplitMenuButton: NSViewRepresentable {
         control.isEnabled = context.environment.isEnabled
         if let control = control as? SplitMenuSegmentedControl {
             if control.border != border { control.border = border }
+            control.longPressDelay = longPressDelay
             control.connect(to: coordinator, chevronPresentation: chevronPresentation)
         }
         applyWidths(to: control, segments: segments)

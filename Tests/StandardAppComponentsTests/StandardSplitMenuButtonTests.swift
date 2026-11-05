@@ -300,14 +300,17 @@ final class StandardSplitMenuButtonTests: XCTestCase {
     }
 
     func test_枠付きの左の区画は_離せば主の操作_外で離せば取り消し_押し続ければメニュー() {
-        let withMenu = SplitMenuPressTracker(hasMenu: true)
-        let delay = SplitMenuPressTracker.longPressDelay
+        let delay = StandardSplitMenuButton.defaultLongPressDelay
+        let withMenu = SplitMenuPressTracker(hasMenu: true, longPressDelay: delay)
         XCTAssertEqual(withMenu.outcome(elapsed: 0.1, release: .inside, isOver: true), .primary)
         XCTAssertEqual(withMenu.outcome(elapsed: 0.1, release: .outside, isOver: false), .cancel)
         XCTAssertEqual(withMenu.outcome(elapsed: 0.1, release: .notYet, isOver: true), .pending)
         XCTAssertEqual(withMenu.outcome(elapsed: delay, release: .notYet, isOver: true), .menu)
         XCTAssertEqual(withMenu.outcome(elapsed: delay, release: .notYet, isOver: false), .pending, "外へ出している間はメニューを開かない")
-        let withoutMenu = SplitMenuPressTracker(hasMenu: false)
+        let short = SplitMenuPressTracker(hasMenu: true, longPressDelay: 0.1)
+        XCTAssertEqual(short.outcome(elapsed: 0.1, release: .notYet, isOver: true), .menu, "渡した時間で長押しになる")
+        XCTAssertEqual(short.outcome(elapsed: 0.09, release: .notYet, isOver: true), .pending)
+        let withoutMenu = SplitMenuPressTracker(hasMenu: false, longPressDelay: delay)
         XCTAssertEqual(withoutMenu.outcome(elapsed: 5, release: .notYet, isOver: true), .pending, "メニューの無いボタンは押し続けても離すまで待つ")
         XCTAssertEqual(withoutMenu.outcome(elapsed: 5, release: .inside, isOver: true), .primary)
     }
