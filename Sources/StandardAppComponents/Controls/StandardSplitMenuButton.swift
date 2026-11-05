@@ -7,7 +7,9 @@ import SwiftUI
 ///   押し続けられることを示す小さな ▼ を、⌄ の側の上の角に描く
 /// - ⌄ の区画: クリックでその下にメニュー。既定は右端 (`menuEdge: .trailing`)。`.leading` で左端に置く。
 ///   `chevronPresentation: .popover` なら、メニューの代わりに ⌄ の区画の上へ矢印付きのポップオーバーで同じ項目のリスト
-///   (`StandardPopoverMenu`) を出す (外のクリックで閉じる。もう一度 ⌄ を押しても閉じる)。長押し・右クリックは標準のメニューのまま
+///   (`StandardPopoverMenu`) を出す (外のクリックで閉じる。もう一度 ⌄ を押しても閉じる)。枠付き (`border:`) なら主の区画の長押しも同じポップオーバーを
+///   出す (クリックと長押しで出るものを揃える。2026-11-05 の vlc-multi-video-player のユーザー指示)。右クリックは標準のメニューのまま
+///   (キーボード・VoiceOver で選べる経路として残す)。枠なしの長押しは AppKit (`setMenu(_:forSegment:)`) が開くので標準のメニュー
 ///   (戻す・進めるのボタンを左右対称に並べるとき。区画の番号も左から ⌄・主の順になる。`SplitMenuSegments`)
 /// - 右クリック (control-クリック) でも同じメニュー
 ///
@@ -55,7 +57,8 @@ public struct StandardSplitMenuButton: NSViewRepresentable {
     public enum ChevronPresentation: Equatable, Sendable {
         /// macOS の標準メニュー (区画の下に開く)
         case menu
-        /// 区画の上に矢印付きのポップオーバーで項目のリスト (`StandardPopoverMenu`)。画面の端で入らなければ AppKit が下へ回す
+        /// 区画の上に矢印付きのポップオーバーで項目のリスト (`StandardPopoverMenu`)。画面の端で入らなければ AppKit が下へ回す。
+        /// 枠付きなら主の区画の長押しも同じポップオーバー
         case popover
     }
 
@@ -144,20 +147,7 @@ public struct StandardSplitMenuButton: NSViewRepresentable {
         control.isEnabled = context.environment.isEnabled
         if let control = control as? SplitMenuSegmentedControl {
             if control.border != border { control.border = border }
-            // 枠付きのときは control が自分で押下を追う (`SplitMenuSegmentedControl.mouseDown`)。押せるかと項目の扱いは coordinator と同じ
-            control.primaryAction = { [weak coordinator, weak control] in
-                guard let coordinator, let control else { return }
-                coordinator.handleClick(segment: coordinator.segments.action, in: control)
-            }
-            control.menuProvider = { [weak coordinator] in
-                guard let coordinator, coordinator.isEnabled, !coordinator.items.isEmpty else { return nil }
-                return coordinator.makeMenu()
-            }
-            // ⌄ の押下: ポップオーバーなら coordinator が出す (nil なら control がメニューを開く)
-            control.chevronAction = chevronPresentation == .popover ? { [weak coordinator, weak control] in
-                guard let coordinator, let control, let menuSegment = coordinator.segments.menu else { return }
-                coordinator.handleClick(segment: menuSegment, in: control)
-            } : nil
+            control.connect(to: coordinator, chevronPresentation: chevronPresentation)
         }
         applyWidths(to: control, segments: segments)
         let menuKey = Coordinator.MenuKey(
@@ -319,10 +309,16 @@ public struct StandardSplitMenuButton: NSViewRepresentable {
                 case .menu:
                     presentMenu(makeMenu(), control)
                 case .popover:
-                    popoverPresenter.toggle(items: items, in: control, segments: segments) { [weak self] index in
-                        self?.chooseItem(at: index)
-                    }
+                    presentItemsPopover(in: control)
                 }
+            }
+        }
+
+        /// ⌄ の区画の上に項目のリストのポップオーバーを出す (開いていれば閉じる)。⌄ のクリックと、枠付きの主の区画の長押しが使う
+        func presentItemsPopover(in control: NSSegmentedControl) {
+            guard isEnabled, !items.isEmpty else { return }
+            popoverPresenter.toggle(items: items, in: control, segments: segments) { [weak self] index in
+                self?.chooseItem(at: index)
             }
         }
 

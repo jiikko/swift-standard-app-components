@@ -402,7 +402,7 @@ final class StandardSplitMenuButtonTests: XCTestCase {
         XCTAssertEqual(log.calls, ["primary"], "左の区画は今までどおり主の操作")
     }
 
-    func test_popoverでも長押しと右クリックは標準のメニューのまま() throws {
+    func test_枠なしのpopoverでは長押しと右クリックは標準のメニューのまま() throws {
         let control = try makePopoverButton(log: Log())
         XCTAssertEqual(control.menu(forSegment: StandardSplitMenuButton.actionSegment)?.items.map(\.title), ["-30s", "-3m"])
         XCTAssertEqual(control.menu?.items.map(\.title), ["-30s", "-3m"])
@@ -420,6 +420,28 @@ final class StandardSplitMenuButtonTests: XCTestCase {
 
         let menuControl = try XCTUnwrap(makeBorderedMenuButton() as? SplitMenuSegmentedControl)
         XCTAssertNil(menuControl.chevronAction, "menu なら control がメニューを開く")
+    }
+
+    func test_枠付きでpopoverなら主の区画の長押しも同じポップオーバーへ_menuなら配線しない() throws {
+        let log = Log()
+        let control = try XCTUnwrap(makePopoverButton(log: log, border: border) as? SplitMenuSegmentedControl)
+        let coordinator = try XCTUnwrap(control.target as? StandardSplitMenuButton.Coordinator)
+        var menus = 0
+        coordinator.presentMenu = { _, _ in menus += 1 }
+        var presented: [NSRect] = []
+        coordinator.popoverPresenter.present = { _, rect, _ in presented.append(rect) }
+        let longPressAction = try XCTUnwrap(control.longPressAction, "popover なら長押しも coordinator へ")
+        longPressAction()
+        XCTAssertEqual(menus, 0, "標準のメニューは開かない")
+        XCTAssertEqual(presented.count, 1)
+        XCTAssertEqual(
+            try XCTUnwrap(presented.first).maxX, control.bounds.maxX, accuracy: 1,
+            "⌄ のクリックと同じ所 (⌄ の区画) に出す"
+        )
+        XCTAssertEqual(log.calls, [], "開くだけでは主の操作を呼ばない")
+
+        let menuControl = try XCTUnwrap(makeBorderedMenuButton() as? SplitMenuSegmentedControl)
+        XCTAssertNil(menuControl.longPressAction, "menu なら control がメニューを開く")
     }
 
     private func makeBorderedMenuButton() throws -> NSSegmentedControl {

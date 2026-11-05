@@ -40,9 +40,33 @@ final class SplitMenuSegmentedControl: NSSegmentedControl {
     var menuProvider: (() -> NSMenu?)?
     /// ⌄ の区画の押下でメニューの代わりに呼ぶもの (`ChevronPresentation.popover`)。nil ならメニューを開く
     var chevronAction: (() -> Void)?
+    /// 主の区画の長押しでメニューの代わりに呼ぶもの (`ChevronPresentation.popover`)。nil ならメニューを開く
+    var longPressAction: (() -> Void)?
     /// メニューを `point` (control の座標) に開く。テストでは差し替える (`popUp` はメニューを閉じるまで戻らない)
     var presentMenuAt: (NSMenu, NSPoint, SplitMenuSegmentedControl) -> Void = { menu, point, control in
         menu.popUp(positioning: nil, at: point, in: control)
+    }
+
+    /// 自分で追う押下 (クリック・長押し・⌄) を coordinator へつなぐ (枠付きのときに使う)。押せるかと項目の扱いは coordinator と同じ
+    func connect(to coordinator: StandardSplitMenuButton.Coordinator, chevronPresentation: StandardSplitMenuButton.ChevronPresentation) {
+        primaryAction = { [weak coordinator, weak self] in
+            guard let coordinator, let self else { return }
+            coordinator.handleClick(segment: coordinator.segments.action, in: self)
+        }
+        menuProvider = { [weak coordinator] in
+            guard let coordinator, coordinator.isEnabled, !coordinator.items.isEmpty else { return nil }
+            return coordinator.makeMenu()
+        }
+        // ⌄ の押下: ポップオーバーなら coordinator が出す (nil なら自分でメニューを開く)
+        chevronAction = chevronPresentation == .popover ? { [weak coordinator, weak self] in
+            guard let coordinator, let self, let menuSegment = coordinator.segments.menu else { return }
+            coordinator.handleClick(segment: menuSegment, in: self)
+        } : nil
+        // 主の区画の長押し: ポップオーバーなら ⌄ のクリックと同じものを出す (nil なら自分でメニューを開く)
+        longPressAction = chevronPresentation == .popover ? { [weak coordinator, weak self] in
+            guard let coordinator, let self else { return }
+            coordinator.presentItemsPopover(in: self)
+        } : nil
     }
 
     override var intrinsicContentSize: NSSize {
@@ -177,7 +201,11 @@ final class SplitMenuSegmentedControl: NSSegmentedControl {
             case .primary:
                 primaryAction?()
             case .menu:
-                openMenu(below: actionSegment)
+                if let longPressAction {
+                    longPressAction()
+                } else {
+                    openMenu(below: actionSegment)
+                }
             case .cancel:
                 break
             }
