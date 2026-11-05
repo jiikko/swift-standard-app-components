@@ -36,6 +36,8 @@ import SwiftUI
 public struct StandardGlassSegmentedPicker<Value: Hashable>: View {
     private let options: [Value]
     private let selection: Value
+    /// 絵を `emphasis.color` で描く値 (`emphasizing(_:color:)`)。選んでいるかとは別に、1 つの区切りを目立たせる
+    private var emphasis: (value: Value, color: Color)?
     private let content: (Value) -> SegmentContent
     private let onSelect: (Value) -> Void
 
@@ -96,12 +98,26 @@ public struct StandardGlassSegmentedPicker<Value: Hashable>: View {
         self.onSelect = onSelect
     }
 
+    /// `value` の区切りの絵・文字を `color` で描く (選んでいるかとは別の印。vlc-multi-video-player の新しいタブのレイアウト。2026-11-05)。
+    /// nil なら目立たせない。選んでいる区切りでも同じ色 (選んでいる印は下地の塗りと太さで残る)
+    public func emphasizing(_ value: Value?, color: Color) -> Self {
+        var copy = self
+        copy.emphasis = value.map { (value: $0, color: color) }
+        return copy
+    }
+
+    /// 区切りの絵・文字の色: 目立たせる値なら `emphasis.color`、それ以外は選んでいれば primary、いなければ secondary
+    func foreground(for option: Value) -> Color {
+        if let emphasis, emphasis.value == option { return emphasis.color }
+        return option == selection ? .primary : .secondary
+    }
+
     public var body: some View {
         HStack(spacing: 0) {
             ForEach(options, id: \.self) { option in
                 let isSelected = option == selection
                 segmentLabel(content(option), isSelected: isSelected)
-                    .foregroundStyle(isSelected ? Color.primary : Color.secondary)
+                    .foregroundStyle(foreground(for: option))
                     .lineLimit(1)
                     .padding(.horizontal, GlassSegmentedMetrics.segmentHorizontalPadding)
                     .frame(minWidth: GlassSegmentedMetrics.segmentMinWidth, minHeight: GlassSegmentedMetrics.segmentHeight)

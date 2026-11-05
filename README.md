@@ -158,7 +158,7 @@ UI 非依存のロギング product。**ログの入口と subsystem / category 
 | ウィンドウ / 外観 | `WindowBackgroundView`, `View.autoSaveWindowFrame(name:)`, `StandardAppearanceMode`, `View.applyAppAppearance(_:)` |
 | タブの帯 | `StandardTabStrip` (Chrome 風のタブ。選ぶ・閉じる・足す・ドラッグで並べ替え・見える所へ送る・閉じたタブを縮めて消す・選んでいるタブの上端に目印の線 (任意)。lifecycle は callback で consumer に残す) |
 | サイドバーの境目 | `StandardSidebarDividerGrabArea` (`NavigationSplitView` のサイドバーの境目をつかめる範囲を広げる透明な帯。consumer が境目の上に重ねる) |
-| タイトルバーの切り替え | `StandardGlassSegmentedPicker` (自前のタイトルバーに置く、macOS 26 のツールバーと同じ見え方のセグメント。26 以降は Liquid Glass。中身は文字・SF Symbols・`image:` で consumer が描いた絵) |
+| タイトルバーの切り替え | `StandardGlassSegmentedPicker` (自前のタイトルバーに置く、macOS 26 のツールバーと同じ見え方のセグメント。26 以降は Liquid Glass。中身は文字・SF Symbols・`image:` で consumer が描いた絵。`.emphasizing(_:color:)` で 1 つの区切りの絵を指定の色で描く (選んでいる印とは別)) |
 | 分割ボタン | `StandardSplitMenuButton` (左 = クリックで主の操作・長押しでメニュー (右上に ▼)、右の ⌄ = クリックでメニュー、右クリックでも同じメニュー。メニューは macOS 標準。入力先を取らない。`border:` で枠付きの見た目 (高さ・ホバー・押下を自前で描く)、`items` が空なら普通のボタン、`reservingWidthFor:` で名前が切り替わっても幅を保つ、`menuEdge: .leading` で ⌄ を左に置く (戻す・進めるを左右対称に並べる。▼ も ⌄ の側の角に描く)、`chevronPresentation: .popover` で ⌄ のクリックをメニューの代わりに ⌄ の上のポップオーバー (項目のリスト) にする (枠付きなら長押しも同じポップオーバーで、押したまま項目まで動かして離すと選ぶ。枠なしの長押しと右クリックは標準のメニューのまま。開いた直後に ↑↓ では選べない)、`Item(isChecked:)` で項目に ✓、`longPressDelay:` で枠付きの長押しの時間 (既定 0.3 秒)) |
 | 押すとポップオーバーの項目のリストを出すボタン | `StandardPopoverMenuButton` (中身は consumer が描く。押した時点で上に開き、押したまま項目まで動かして離すと選ぶ。分割ボタンの `.popover` の ⌄ と同じ動き。`label` の `isHighlighted` はカーソルを乗せている間と開いている間。キーボード・VoiceOver では開けない) |
 | ポップオーバーの項目のリスト | `StandardPopoverMenu` (標準メニューと同じ並びの ✓・アイコン・名前。カーソルを乗せた行を選択の色で塗る。分割ボタンの `.popover` の中身。consumer の自前の `.popover` に入れて、分割ボタン以外の場所の見た目を揃える) |
