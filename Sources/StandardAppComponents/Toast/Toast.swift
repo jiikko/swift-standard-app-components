@@ -16,7 +16,7 @@ public struct Toast: Identifiable, Equatable {
     public let style: Style
     /// タイトル (1 行目)。
     public let title: String
-    /// 補足メッセージ (任意。最大 2 行で truncate される)。
+    /// 補足メッセージ (任意。最大 4 行で truncate され、全文はマウスを乗せたときの tooltip に出る)。
     public let message: String?
     /// 自動消去までの秒数。
     public let duration: TimeInterval

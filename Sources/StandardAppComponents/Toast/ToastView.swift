@@ -13,7 +13,10 @@ public struct ToastView: View {
         static let titleFontSize: CGFloat = 13
         static let messageFontSize: CGFloat = 12
         static let messageOpacity: Double = 0.9
-        static let messageLineLimit: Int = 2
+        /// 4 行。2 行では、失敗の理由を書いた補足 (「アップロードできるサイズの上限 … を超えています」のような文) が
+        /// 途中で切れて読めなかった (obaket の報告 2026-11-13)。これより長い文は末尾が切れるが、全文は tooltip (`.help`) と
+        /// accessibility label で読める。増やすほど画面右下を覆う高さが伸びるので、行数を足す前にその兼ね合いを見る。
+        static let messageLineLimit: Int = 4
         static let spacerMinLength: CGFloat = 8
         static let actionButtonFontSize: CGFloat = 12
         static let actionButtonHorizontalPadding: CGFloat = 12
@@ -72,6 +75,7 @@ public struct ToastView: View {
                         .font(.system(size: Layout.messageFontSize))
                         .foregroundStyle(style.foregroundColor.opacity(Layout.messageOpacity))
                         .lineLimit(Layout.messageLineLimit)
+                        .help(message)
                 }
             }
 
