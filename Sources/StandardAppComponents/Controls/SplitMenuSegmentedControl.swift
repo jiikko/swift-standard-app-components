@@ -38,13 +38,13 @@ final class SplitMenuSegmentedControl: NSSegmentedControl {
     var primaryAction: (() -> Void)?
     /// 開くメニュー (無ければメニューを持たないボタン)
     var menuProvider: (() -> NSMenu?)?
-    /// ⌄ の区画の押下でメニューの代わりに呼ぶもの (`ChevronPresentation.popover`)。nil ならメニューを開く
+    /// ⌄ の区画の押下でメニューの代わりに呼ぶもの (`itemsPresenter` を持つとき)。nil ならメニューを開く
     var chevronAction: (() -> Void)?
-    /// 主の区画の長押しでメニューの代わりに呼ぶもの (`ChevronPresentation.popover`)。nil ならメニューを開く
+    /// 主の区画の長押しでメニューの代わりに呼ぶもの (`itemsPresenter` を持つとき)。nil ならメニューを開く
     var longPressAction: (() -> Void)?
-    /// ポップオーバーを開いた押下を離すまで、カーソルの位置 (画面の座標) を渡す先 (`.popover`。押している間のマウスはこのウィンドウに届く)
-    var popoverDragMoved: ((NSPoint) -> Void)?
-    var popoverDragEnded: ((NSPoint) -> Void)?
+    /// `itemsPresenter` で開いた押下を離すまで、カーソルの位置 (画面の座標) を渡す先 (押している間のマウスはこのウィンドウに届く)
+    var itemsPressMoved: ((NSPoint) -> Void)?
+    var itemsPressEnded: ((NSPoint) -> Void)?
     /// 主の区画を押し続けてメニューを出すまでの時間 (`StandardSplitMenuButton(longPressDelay:)`)
     var longPressDelay = StandardSplitMenuButton.defaultLongPressDelay
     /// メニューを `point` (control の座標) に開く。テストでは差し替える (`popUp` はメニューを閉じるまで戻らない)
@@ -53,7 +53,8 @@ final class SplitMenuSegmentedControl: NSSegmentedControl {
     }
 
     /// 自分で追う押下 (クリック・長押し・⌄) を coordinator へつなぐ (枠付きのときに使う)。押せるかと項目の扱いは coordinator と同じ
-    func connect(to coordinator: StandardSplitMenuButton.Coordinator, chevronPresentation: StandardSplitMenuButton.ChevronPresentation) {
+    func connect(to coordinator: StandardSplitMenuButton.Coordinator) {
+        let usesItemsPresenter = coordinator.itemsPresenter != nil
         primaryAction = { [weak coordinator, weak self] in
             guard let coordinator, let self else { return }
             coordinator.handleClick(segment: coordinator.segments.action, in: self)
@@ -62,22 +63,22 @@ final class SplitMenuSegmentedControl: NSSegmentedControl {
             guard let coordinator, coordinator.isEnabled, !coordinator.items.isEmpty else { return nil }
             return coordinator.makeMenu()
         }
-        // ⌄ の押下: ポップオーバーなら coordinator が出す (nil なら自分でメニューを開く)
-        chevronAction = chevronPresentation == .popover ? { [weak coordinator, weak self] in
+        // ⌄ の押下: itemsPresenter があれば coordinator が出させる (nil なら自分でメニューを開く)
+        chevronAction = usesItemsPresenter ? { [weak coordinator, weak self] in
             guard let coordinator, let self, let menuSegment = coordinator.segments.menu else { return }
             coordinator.handleClick(segment: menuSegment, in: self)
         } : nil
-        // 主の区画の長押し: ポップオーバーなら ⌄ のクリックと同じものを出す (nil なら自分でメニューを開く)
-        longPressAction = chevronPresentation == .popover ? { [weak coordinator, weak self] in
+        // 主の区画の長押し: itemsPresenter があれば ⌄ のクリックと同じものを出させる (nil なら自分でメニューを開く)
+        longPressAction = usesItemsPresenter ? { [weak coordinator, weak self] in
             guard let coordinator, let self else { return }
-            coordinator.presentItemsPopover(in: self)
+            coordinator.presentItems(in: self)
         } : nil
-        // ポップオーバーを開いたまま押し続けて項目の上で離すと選ぶ (標準のメニューと同じ。2026-11-05 ユーザー指示)
-        popoverDragMoved = chevronPresentation == .popover ? { [weak coordinator] point in
-            coordinator?.popoverPresenter.dragMoved(toScreen: point)
+        // 開いたまま押し続けて項目の上で離すと選ぶ (標準のメニューと同じ。2026-11-05 vlc-multi-video-player のユーザー指示)
+        itemsPressMoved = usesItemsPresenter ? { [weak coordinator] point in
+            coordinator?.itemsPresenter?.pressMoved(toScreen: point)
         } : nil
-        popoverDragEnded = chevronPresentation == .popover ? { [weak coordinator] point in
-            coordinator?.popoverPresenter.dragEnded(atScreen: point)
+        itemsPressEnded = usesItemsPresenter ? { [weak coordinator] point in
+            coordinator?.itemsPresenter?.pressEnded(atScreen: point)
         } : nil
     }
 
@@ -161,10 +162,10 @@ final class SplitMenuSegmentedControl: NSSegmentedControl {
         pressedSegment = segment
         display()
         if segment == segments.menu {
-            // ⌄: 押した時点でメニューを開く (標準のプルダウンと同じ。押したまま項目まで動かして離しても決まる)。ポップオーバーなら coordinator が出す
+            // ⌄: 押した時点でメニューを開く (標準のプルダウンと同じ。押したまま項目まで動かして離しても決まる)。itemsPresenter があれば coordinator が出させる
             if let chevronAction {
                 chevronAction()
-                trackPressIntoPopover()
+                trackPressIntoItems()
             } else {
                 openMenu(below: segment)
             }
@@ -216,7 +217,7 @@ final class SplitMenuSegmentedControl: NSSegmentedControl {
             case .menu:
                 if let longPressAction {
                     longPressAction()
-                    trackPressIntoPopover()
+                    trackPressIntoItems()
                 } else {
                     openMenu(below: actionSegment)
                 }
@@ -227,10 +228,10 @@ final class SplitMenuSegmentedControl: NSSegmentedControl {
         }
     }
 
-    /// ポップオーバーを開いた押下を、離すまで追う。動かしたらカーソルの下の行を塗り、行の上で離したら選ぶ
-    private func trackPressIntoPopover() {
-        guard let popoverDragMoved, let popoverDragEnded else { return }
-        PopoverPressTracking.track(in: self, moved: popoverDragMoved, ended: popoverDragEnded)
+    /// `itemsPresenter` で開いた押下を、離すまで追ってカーソルの位置を渡す (押したまま項目まで動かして離すと選べるように)
+    private func trackPressIntoItems() {
+        guard let itemsPressMoved, let itemsPressEnded else { return }
+        SplitMenuPressTracking.track(in: self, moved: itemsPressMoved, ended: itemsPressEnded)
     }
 
     /// `segment` の区画の左下にメニューを開く

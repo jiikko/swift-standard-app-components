@@ -5,14 +5,12 @@ import SwiftUI
 ///
 /// - 主の区画 (アイコン + 名前): クリックで主の操作、押し続けるとメニュー (押したまま項目まで動かして離すと決まる)。
 ///   押し続けられることを示す小さな ▼ を、⌄ の側の上の角に描く
-/// - ⌄ の区画: クリックでその下にメニュー。既定は右端 (`menuEdge: .trailing`)。`.leading` で左端に置く。
-///   `chevronPresentation: .popover` なら、メニューの代わりに ⌄ の区画の上へ矢印付きのポップオーバーで同じ項目のリスト
-///   (`StandardPopoverMenu`) を出す (外のクリックで閉じる。もう一度 ⌄ を押しても閉じる)。枠付き (`border:`) なら主の区画の長押しも同じポップオーバーを
-///   出す (クリックと長押しで出るものを揃える。2026-11-05 の vlc-multi-video-player のユーザー指示)。枠付きなら、開いた押下を離さずに項目まで
-///   動かして離すと選ぶ (標準のメニューと同じ。項目の外で離すと開いたまま。同日のユーザー指示)。右クリックは標準のメニューのまま
-///   (キーボード・VoiceOver で選べる経路として残す)。枠なしの長押しは AppKit (`setMenu(_:forSegment:)`) が開くので標準のメニュー
+/// - ⌄ の区画: クリックでその下にメニュー。既定は右端 (`menuEdge: .trailing`)。`.leading` で左端に置く
 ///   (戻す・進めるのボタンを左右対称に並べるとき。区画の番号も左から ⌄・主の順になる。`SplitMenuSegments`)
 /// - 右クリック (control-クリック) でも同じメニュー
+///
+/// `itemsPresenter:` を渡すと、⌄ のクリックと枠付きの主の区画の長押しで、標準のメニューの代わりに consumer の出すもの (ポップオーバーなど)
+/// を開く (`StandardSplitMenuItemsPresenter`)。右クリックと枠なしの長押し (AppKit の `setMenu(_:forSegment:)`) は標準のメニューのまま
 ///
 /// メニューは macOS の標準のもの (キーボード・VoiceOver が効く)。
 ///
@@ -42,7 +40,7 @@ public struct StandardSplitMenuButton: NSViewRepresentable {
         public let title: String
         /// 項目の先頭に出すアイコン (SF Symbols)。nil なら文字だけ
         public let systemImage: String?
-        /// 項目の左に ✓ を付けるか (今の値など。標準メニューの状態 `.on` とポップオーバーの ✓)
+        /// 項目の左に ✓ を付けるか (今の値など。標準メニューの状態 `.on`。`itemsPresenter` にもそのまま渡す)
         public let isChecked: Bool
         public let action: () -> Void
 
@@ -52,15 +50,6 @@ public struct StandardSplitMenuButton: NSViewRepresentable {
             self.isChecked = isChecked
             self.action = action
         }
-    }
-
-    /// ⌄ の区画のクリックで出すもの
-    public enum ChevronPresentation: Equatable, Sendable {
-        /// macOS の標準メニュー (区画の下に開く)
-        case menu
-        /// 区画の上に矢印付きのポップオーバーで項目のリスト (`StandardPopoverMenu`)。画面の端で入らなければ AppKit が下へ回す。
-        /// 枠付きなら主の区画の長押しも同じポップオーバー
-        case popover
     }
 
     /// 主の区画を押し続けてメニューを出すまでの時間の既定 (旧 `LongPressMenuButton` と同じ)。`init(longPressDelay:)` で変える
@@ -78,7 +67,7 @@ public struct StandardSplitMenuButton: NSViewRepresentable {
     private let border: Border?
     private let widthAlternatives: [(title: String, systemImage: String)]
     private let menuEdge: MenuEdge
-    private let chevronPresentation: ChevronPresentation
+    private let makeItemsPresenter: (@MainActor () -> any StandardSplitMenuItemsPresenter)?
     private let longPressDelay: TimeInterval
     private let action: () -> Void
 
@@ -89,7 +78,8 @@ public struct StandardSplitMenuButton: NSViewRepresentable {
     ///   - border: 枠付きの見た目。nil なら macOS 標準の描画
     ///   - widthAlternatives: 切り替わる先の名前とアイコン。主の区画の幅をこれらと今の中身のいちばん広いものに揃える (枠付きのときだけ)
     ///   - menuEdge: ⌄ の区画を置く側 (既定は右)
-    ///   - chevronPresentation: ⌄ の区画のクリックで出すもの (既定は標準のメニュー)
+    ///   - itemsPresenter: ⌄ のクリックと枠付きの主の区画の長押しで、標準のメニューの代わりに項目を出すものを作る。ボタンが画面に出たときに
+    ///     1 度だけ呼ぶ (開いている状態をボタンが持ち続ける)。nil なら標準のメニュー
     ///   - longPressDelay: 主の区画を押し続けてメニューを出すまでの秒数 (枠付きのときだけ。枠なしは AppKit が決める)。
     ///     短くするほど、普通のクリックの押している間 (100ms 前後) が長押しに数えられやすくなる
     ///   - action: 主の区画のクリックで呼ぶ主の操作
@@ -100,7 +90,7 @@ public struct StandardSplitMenuButton: NSViewRepresentable {
         border: Border? = nil,
         reservingWidthFor widthAlternatives: [(title: String, systemImage: String)] = [],
         menuEdge: MenuEdge = .trailing,
-        chevronPresentation: ChevronPresentation = .menu,
+        itemsPresenter makeItemsPresenter: (@MainActor () -> any StandardSplitMenuItemsPresenter)? = nil,
         longPressDelay: TimeInterval = StandardSplitMenuButton.defaultLongPressDelay,
         action: @escaping () -> Void
     ) {
@@ -111,7 +101,7 @@ public struct StandardSplitMenuButton: NSViewRepresentable {
         self.border = border
         self.widthAlternatives = widthAlternatives
         self.menuEdge = menuEdge
-        self.chevronPresentation = chevronPresentation
+        self.makeItemsPresenter = makeItemsPresenter
         self.action = action
     }
 
@@ -119,9 +109,9 @@ public struct StandardSplitMenuButton: NSViewRepresentable {
         Coordinator()
     }
 
-    /// 画面から外れたら (タブの切り替えなど) 開いているリストを閉じる。残すと、外れたボタンの位置に浮いたままになる
+    /// 画面から外れたら (タブの切り替えなど) 開いているものを閉じる。残すと、外れたボタンの位置に浮いたままになる
     public static func dismantleNSView(_ control: NSSegmentedControl, coordinator: Coordinator) {
-        coordinator.popoverPresenter.close()
+        coordinator.itemsPresenter?.close()
     }
 
     public func makeNSView(context: Context) -> NSSegmentedControl {
@@ -139,13 +129,8 @@ public struct StandardSplitMenuButton: NSViewRepresentable {
         let coordinator = context.coordinator
         coordinator.action = action
         coordinator.items = items
-        coordinator.popoverPresenter.update(items: items)
         coordinator.isEnabled = context.environment.isEnabled
-        coordinator.chevronPresentation = chevronPresentation
-        if !coordinator.isEnabled || chevronPresentation != .popover {
-            // 押せなくなったら開いているリストも閉じる (残すと、押しても何も起きない項目が並ぶ)
-            coordinator.popoverPresenter.close()
-        }
+        updateItemsPresenter(of: coordinator)
         let hasMenu = !items.isEmpty
         let segments = SplitMenuSegments(hasMenu: hasMenu, menuEdge: menuEdge)
         coordinator.segments = segments
@@ -158,7 +143,7 @@ public struct StandardSplitMenuButton: NSViewRepresentable {
         if let control = control as? SplitMenuSegmentedControl {
             if control.border != border { control.border = border }
             control.longPressDelay = longPressDelay
-            control.connect(to: coordinator, chevronPresentation: chevronPresentation)
+            control.connect(to: coordinator)
         }
         applyWidths(to: control, segments: segments)
         let menuKey = Coordinator.MenuKey(
@@ -178,6 +163,19 @@ public struct StandardSplitMenuButton: NSViewRepresentable {
             // 右クリックのメニューは control が押せるかを見ずに開くので、押せない間は付けない (項目も `validateMenuItem` で無効にする)
             control.menu = hasMenu && coordinator.isEnabled ? coordinator.makeMenu() : nil
         }
+    }
+
+    /// `itemsPresenter` を初めて渡されたときに作り、外されたら閉じて捨てる。開いている間に項目が変わったら知らせ、
+    /// 押せなくなったら閉じる (残すと、押しても何も起きない項目が並ぶ)
+    private func updateItemsPresenter(of coordinator: Coordinator) {
+        if let makeItemsPresenter {
+            if coordinator.itemsPresenter == nil { coordinator.itemsPresenter = makeItemsPresenter() }
+        } else if let presenter = coordinator.itemsPresenter {
+            presenter.close()
+            coordinator.itemsPresenter = nil
+        }
+        coordinator.itemsPresenter?.update(items: items)
+        if !coordinator.isEnabled { coordinator.itemsPresenter?.close() }
     }
 
     /// 区画の数と中身 (主の区画の名前とアイコン、⌄ の区画の ⌄ と説明)。⌄ を置く側が変わっても前の中身を残さない
@@ -266,11 +264,20 @@ public struct StandardSplitMenuButton: NSViewRepresentable {
         return NSPoint(x: x, y: y)
     }
 
+    /// ⌄ の区画の範囲 (control の座標)。⌄ が無ければ control 全体
+    static func menuSegmentRect(in control: NSSegmentedControl, segments: SplitMenuSegments) -> NSRect {
+        guard let menuSegment = segments.menu else { return control.bounds }
+        let frames = (control.cell as? LongPressHintSegmentedCell)?.segmentFrames(in: control.bounds, controlView: control)
+            ?? segments.frames(in: control.bounds, menuWidth: control.width(forSegment: menuSegment))
+        return frames.indices.contains(menuSegment) ? frames[menuSegment] : control.bounds
+    }
+
     @MainActor
     public final class Coordinator: NSObject, NSMenuItemValidation {
         var action: () -> Void = {}
         var items: [Item] = []
-        var chevronPresentation: ChevronPresentation = .menu
+        /// ⌄ のクリックと枠付きの長押しで、標準のメニューの代わりに項目を出すもの (`init(itemsPresenter:)`)。nil なら標準のメニュー
+        var itemsPresenter: (any StandardSplitMenuItemsPresenter)?
         /// `.disabled` の間は操作もメニューの項目も呼ばない (メニューを開く経路は右クリック・VoiceOver など control の外にもある)
         var isEnabled = true
         /// 今付けているメニューの中身 (項目の名前と押せるか)。同じなら作り直さない (項目の操作は `items` を tag で引くので、名前が同じなら古いメニューのままでよい)
@@ -289,9 +296,6 @@ public struct StandardSplitMenuButton: NSViewRepresentable {
             let segments = (control as? SplitMenuSegmentedControl)?.segments ?? SplitMenuSegments(hasMenu: true, menuEdge: .trailing)
             menu.popUp(positioning: nil, at: StandardSplitMenuButton.menuOrigin(in: control, segments: segments), in: control)
         }
-
-        /// `ChevronPresentation.popover` のポップオーバー
-        let popoverPresenter = SplitMenuPopoverPresenter()
 
         func makeMenu() -> NSMenu {
             let menu = NSMenu()
@@ -314,21 +318,22 @@ public struct StandardSplitMenuButton: NSViewRepresentable {
         func handleClick(segment: Int, in control: NSSegmentedControl) {
             guard isEnabled else { return }
             if segment == segments.action {
+                itemsPresenter?.willPerformPrimaryAction()
                 action()
             } else if segment == segments.menu, !items.isEmpty {
-                switch chevronPresentation {
-                case .menu:
+                if itemsPresenter != nil {
+                    presentItems(in: control)
+                } else {
                     presentMenu(makeMenu(), control)
-                case .popover:
-                    presentItemsPopover(in: control)
                 }
             }
         }
 
-        /// ⌄ の区画の上に項目のリストのポップオーバーを出す (開いていれば閉じる)。⌄ のクリックと、枠付きの主の区画の長押しが使う
-        func presentItemsPopover(in control: NSSegmentedControl) {
-            guard isEnabled, !items.isEmpty else { return }
-            popoverPresenter.toggle(items: items, in: control, segments: segments) { [weak self] index in
+        /// `itemsPresenter` に ⌄ の区画の上へ項目を出させる (開いていれば閉じる)。⌄ のクリックと、枠付きの主の区画の長押しが使う
+        func presentItems(in control: NSSegmentedControl) {
+            guard isEnabled, !items.isEmpty, let itemsPresenter else { return }
+            let anchor = StandardSplitMenuButton.menuSegmentRect(in: control, segments: segments)
+            itemsPresenter.toggle(items: items, relativeTo: anchor, of: control) { [weak self] index in
                 self?.chooseItem(at: index)
             }
         }
