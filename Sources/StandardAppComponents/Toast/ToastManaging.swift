@@ -145,7 +145,7 @@ extension ToastManaging {
     // `show(_:)` に流す。style ごとの duration の既定は必須メソッド側と揃える
     // (success / info は 3.0、warning は 4.0、error は 5.0 固定、action 付きは 5.0)。
 
-    /// 成功トーストを表示する。`copiesMessage` が `true` なら右クリックで `message` をコピーできる。
+    /// 成功トーストを表示する。`copiesMessage` が `true` なら右クリックで `title` と `message` をコピーできる。
     @MainActor
     public func showSuccess(
         _ title: LocalizedStringResource,
@@ -162,7 +162,7 @@ extension ToastManaging {
         ))
     }
 
-    /// エラートーストを表示する (5 秒)。`copiesMessage` が `true` なら右クリックで `message` をコピーできる。
+    /// エラートーストを表示する (5 秒)。`copiesMessage` が `true` なら右クリックで `title` と `message` をコピーできる。
     @MainActor
     public func showError(
         _ title: LocalizedStringResource,
@@ -178,7 +178,7 @@ extension ToastManaging {
         ))
     }
 
-    /// 情報トーストを表示する。`copiesMessage` が `true` なら右クリックで `message` をコピーできる。
+    /// 情報トーストを表示する。`copiesMessage` が `true` なら右クリックで `title` と `message` をコピーできる。
     @MainActor
     public func showInfo(
         _ title: LocalizedStringResource,
@@ -195,7 +195,7 @@ extension ToastManaging {
         ))
     }
 
-    /// 警告トーストを表示する。`copiesMessage` が `true` なら右クリックで `message` をコピーできる。
+    /// 警告トーストを表示する。`copiesMessage` が `true` なら右クリックで `title` と `message` をコピーできる。
     @MainActor
     public func showWarning(
         _ title: LocalizedStringResource,
@@ -212,7 +212,7 @@ extension ToastManaging {
         ))
     }
 
-    /// アクションボタン付きのトーストを表示する。`copiesMessage` が `true` なら右クリックで `message` をコピーできる。
+    /// アクションボタン付きのトーストを表示する。`copiesMessage` が `true` なら右クリックで `title` と `message` をコピーできる。
     @MainActor
     public func showWithAction(
         style: Toast.Style,

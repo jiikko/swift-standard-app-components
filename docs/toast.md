@@ -19,13 +19,13 @@
 |---|---|
 | `ToastManaging` | manager の契約 (`@MainActor`)。`currentToast` / `visibleToasts` / `show(_:)` / `showSuccess` / `showError` / `showInfo` / `showWarning` / `showWithAction` / `dismiss()` / `dismiss(id:)` / `clearAll()`。consumer / View はこのプロトコル越しに依存し、テストではモックを差し込む。後から足した `visibleToasts` / `dismiss(id:)` / `pauseAutoDismiss(for:)` / `resumeAutoDismiss(for:)` は既定の実装を持つ (1 件ずつ出す manager と同じ挙動) |
 | `ToastManager` | デフォルト実装。キュー / トーストごとの自動消去タイマー / dismiss を一元管理。`init(presentation:)` で出し方を選ぶ: `.oneAtATime` (既定。1 件ずつ) / `.stacked(maxVisible:)` (最大 N 件を同時に出し、あふれた分はキューで待つ)。どちらも、どれかが消えてから 0.3 秒は次を出さない。アプリにつき 1 インスタンス。`@State` / DI コンテナ / `AppServices` で保持し、シングルトンを避ける |
-| 便利メソッド (extension) | `showSuccess(_:message:duration:)` (default 3.0s) / `showError(_:message:)` (default 5.0s, error は長め) / `showInfo` (3.0s) / `showWarning` (4.0s) / `showWithAction` (5.0s)。`message` / `duration` 省略可。各メソッドには `copiesMessage:` 付きのオーバーロードもあり、`copiesMessage: true` を足すと右クリックのコンテキストメニューから `message` の全文をコピーできる (`message` が `nil` のときはメニューは出ない) |
+| 便利メソッド (extension) | `showSuccess(_:message:duration:)` (default 3.0s) / `showError(_:message:)` (default 5.0s, error は長め) / `showInfo` (3.0s) / `showWarning` (4.0s) / `showWithAction` (5.0s)。`message` / `duration` 省略可。各メソッドには `copiesMessage:` 付きのオーバーロードもあり、`copiesMessage: true` を足すと右クリックのコンテキストメニューから `title` と `message` の全文 (`message` があれば改行で続ける) をコピーできる (`message` が `nil` なら `title` だけ) |
 
 ## View / view modifier
 
 | API | 役割 |
 |---|---|
-| `ToastView` | 1 件の toast を描画する pure UI。アイコン + タイトル + メッセージ + (任意) アクションボタン + 閉じるボタン。メッセージは 4 行まで出し、それより長い分は末尾を切る。全文はメッセージにマウスを乗せたときの tooltip (`.help`) と accessibility label で読める。`Toast.copiesMessage` が `true` で `message` がある場合のみ、右クリックのコンテキストメニューに「メッセージをコピー」が出る |
+| `ToastView` | 1 件の toast を描画する pure UI。アイコン + タイトル + メッセージ + (任意) アクションボタン + 閉じるボタン。メッセージは 4 行まで出し、それより長い分は末尾を切る。全文はメッセージにマウスを乗せたときの tooltip (`.help`) と accessibility label で読める。`Toast.copiesMessage` が `true` の場合のみ、右クリックのコンテキストメニューに「メッセージをコピー」が出て、`Toast.textToCopy` (`title` + 改行 + `message`。`message` が無ければ `title`) をコピーする |
 | `ToastContainer` | `ToastManaging` を観測し、画面右下に表示中の `ToastView` を縦に並べて出すコンテナ (新しいものを上に積む)。フェード / スライドのアニメーションを内蔵。吹き出しにマウスが乗っている間は自動消去を止め (`pauseAutoDismiss(for:)`)、外れたら `duration` を数え直して再開する (`resumeAutoDismiss(for:)`)。🚨 `ToastManaging` を包む proxy / decorator は、この 2 つと `visibleToasts` / `dismiss(id:)` も包んだ先へ転送する (既定の実装のままだと、ホバーで止まらず、`.stacked` の manager でも最新の 1 件しか描かれない) |
 | `View.standardToastContainer(_:)` | ルート View に **1 回だけ** 当てる modifier。container を ZStack で重ねて toast manager を環境にも乗せる |
 | `onToastFrameChange:` (container / modifier の省略可能な引数) | 吹き出しの矩形 (複数のときは並べた全体。container の左上が原点、右と下の余白は含まない。全部消えたら nil) を知らせる。AppKit の view に container を全面で重ね、吹き出しの上だけクリックを受けて他を下の view へ通すときに使う (`NSHostingView` は透明な部分のクリックも受けるため) |

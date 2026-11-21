@@ -125,24 +125,24 @@ final class ToastTests: XCTestCase {
 
     // MARK: - message copy (context menu)
 
-    func testMessageToCopyIsNilByDefault() {
+    func testTextToCopyIsNilByDefault() {
         // copiesMessage を渡さなければコピー対象は無い (既定は従来どおりメニューを出さない)。
         let toast = Toast(style: .error, title: "Failed", message: "Path does not exist")
         XCTAssertFalse(toast.copiesMessage)
-        XCTAssertNil(toast.messageToCopy)
+        XCTAssertNil(toast.textToCopy)
     }
 
-    func testMessageToCopyReturnsFullMessageWhenCopiesMessageIsTrue() {
-        // copiesMessage: true なら message の全文がコピー対象になる。
-        // 表示は 2 行で truncate されるが、コピーはモデルの文字列から取る契約。
+    func testTextToCopyJoinsTitleAndFullMessageWhenCopiesMessageIsTrue() {
+        // copiesMessage: true なら title と message の全文を改行でつないだものがコピー対象になる。
+        // 表示は 4 行で truncate されるが、コピーはモデルの文字列から取る契約。
         let toast = Toast(style: .error, title: "Failed", message: "Path does not exist", copiesMessage: true)
-        XCTAssertEqual(toast.messageToCopy, "Path does not exist")
+        XCTAssertEqual(toast.textToCopy, "Failed\nPath does not exist")
     }
 
-    func testMessageToCopyIsNilWhenMessageIsNilEvenIfCopiesMessageIsTrue() {
-        // message が無ければコピーする中身が無いので、true でも対象は nil (メニューは出ない)。
+    func testTextToCopyIsTitleWhenMessageIsNil() {
+        // message が無いトースト (1 文を title だけで出す consumer) でも、title をコピーできる。
         let toast = Toast(style: .success, title: "Saved", copiesMessage: true)
-        XCTAssertNil(toast.messageToCopy)
+        XCTAssertEqual(toast.textToCopy, "Saved")
     }
 
     func testReplacingIDPreservesCopiesMessage() {
@@ -151,7 +151,7 @@ final class ToastTests: XCTestCase {
         let toast = Toast(style: .error, title: "Failed", message: "boom", copiesMessage: true)
         let replaced = toast.replacingID(with: UUID())
         XCTAssertTrue(replaced.copiesMessage)
-        XCTAssertEqual(replaced.messageToCopy, "boom")
+        XCTAssertEqual(replaced.textToCopy, "Failed\nboom")
     }
 
     // MARK: - ToastAction

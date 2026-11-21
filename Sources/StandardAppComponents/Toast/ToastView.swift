@@ -39,7 +39,7 @@ public struct ToastView: View {
     private let title: String
     private let message: String?
     private let action: ToastAction?
-    private let messageToCopy: String?
+    private let textToCopy: String?
     private let accessibilityText: String
     private let onDismiss: () -> Void
 
@@ -52,7 +52,7 @@ public struct ToastView: View {
         self.title = toast.title
         self.message = toast.message
         self.action = toast.action
-        self.messageToCopy = toast.messageToCopy
+        self.textToCopy = toast.textToCopy
         self.accessibilityText = toast.accessibilityLabel
         self.onDismiss = onDismiss
     }
@@ -120,25 +120,25 @@ public struct ToastView: View {
         .accessibilityElement(children: .combine)
         .accessibilityLabel(accessibilityText)
         .accessibilityAddTraits(action == nil ? .isStaticText : [])
-        .modifier(CopyMessageContextMenu(message: messageToCopy))
+        .modifier(CopyMessageContextMenu(text: textToCopy))
     }
 }
 
 // MARK: - Copy Message Context Menu
 
-/// `message` のコピーを許可したトーストにだけ、右クリックのコンテキストメニューを付ける。
+/// 文のコピーを許可したトースト (`Toast.textToCopy` が非 nil) にだけ、右クリックのコンテキストメニューを付ける。
 /// コピー対象が無いトーストに空の `contextMenu` を付けると、右クリックを受け止めるだけで
 /// 何も起きない状態になるため、modifier で出し分ける。
 private struct CopyMessageContextMenu: ViewModifier {
-    let message: String?
+    let text: String?
 
     func body(content: Content) -> some View {
-        if let message {
+        if let text {
             content.contextMenu {
                 Button {
                     let pasteboard = NSPasteboard.general
                     pasteboard.clearContents()
-                    pasteboard.setString(message, forType: .string)
+                    pasteboard.setString(text, forType: .string)
                 } label: {
                     Text("Copy Message", bundle: .module)
                 }

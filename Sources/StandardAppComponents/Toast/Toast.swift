@@ -26,8 +26,8 @@ public struct Toast: Identifiable, Equatable {
     /// `ToastManager.show(_:)` は新しく足さずにそれを置き換える (元の id を引き継ぐので、渡した `id` は使われない)。
     /// `nil` なら重複を許す。
     public let uniqueKey: String?
-    /// 右クリックのコンテキストメニューから `message` をコピーできるようにするか。
-    /// `true` でも `message` が `nil` ならメニューは出ない (コピーする中身が無いため)。
+    /// 右クリックのコンテキストメニューからトーストの文 (`title` と `message`) をコピーできるようにするか。
+    /// コピーする文字列は `textToCopy`。
     public let copiesMessage: Bool
 
     /// - Parameters:
@@ -41,7 +41,7 @@ public struct Toast: Identifiable, Equatable {
     ///   - duration: 自動消去までの秒数。デフォルト 3.0。
     ///   - action: 任意のアクションボタン。`nil` なら閉じるボタンのみ。
     ///   - uniqueKey: 重複させたくない通知に付けるキー (`uniqueKey` プロパティを参照)。
-    ///   - copiesMessage: `true` なら右クリックのコンテキストメニューから `message` をコピーできる。
+    ///   - copiesMessage: `true` なら右クリックのコンテキストメニューから `title` と `message` をコピーできる。
     public init(
         id: UUID = UUID(),
         style: Style,
@@ -90,11 +90,16 @@ public struct Toast: Identifiable, Equatable {
         return "\(title). \(message)"
     }
 
-    /// コンテキストメニューでコピーする文字列。`copiesMessage` が `true` のときだけ `message` を返す。
+    /// コンテキストメニューでコピーする文字列。`copiesMessage` が `true` のときだけ返す。
+    /// `title` を必ず含め、`message` があれば改行で続ける (画面の 2 段と同じ並び)。title だけのトーストでも
+    /// title をコピーする: 1 文を title だけで出す consumer (vlc-multi-video-player の `ToastNotifier`) があり、
+    /// message だけを対象にするとそのトーストはコピーできない。
     /// 返すのは表示用に truncate された文ではなくモデルの全文。条件分岐を View 側に置かず
     /// model の pure 計算に寄せることで単体テストできる (`accessibilityLabel` と同じ方針)。
-    public var messageToCopy: String? {
-        copiesMessage ? message : nil
+    public var textToCopy: String? {
+        guard copiesMessage else { return nil }
+        guard let message else { return title }
+        return "\(title)\n\(message)"
     }
 }
 
